@@ -1,4 +1,9 @@
-function TeaserOverlay(renderer, kwargs) {
+// @ts-check
+import * as d3 from "d3";
+import * as math from "mathjs";
+import * as utils from "./utils";
+
+export function TeaserOverlay(renderer, kwargs) {
 	let canvas = renderer.gl.canvas;
 	let width = canvas.clientWidth;
 	let height = canvas.clientHeight;
@@ -274,15 +279,12 @@ function TeaserOverlay(renderer, kwargs) {
 		.attr("class", "bannerText");
 	this.bannerText = this.banner.selectAll(".bannerText");
 
-	function clamp(min, max, v) {
-		return Math.max(max, Math.min(min, v));
-	}
 
 	this.updateArchorRadius = function (mode) {
 		if (mode == "point") {
-			this.archorRadius = clamp(7, 10, Math.min(width, height) / 50);
+			this.archorRadius = utils.clamp(7, 10, Math.min(width, height) / 50);
 		} else {
-			this.archorRadius = clamp(7, 15, Math.min(width, height) / 30);
+			this.archorRadius = utils.clamp(7, 15, Math.min(width, height) / 30);
 		}
 		this.svg.selectAll(".anchor")
 			.attr("r", this.archorRadius);
@@ -395,34 +397,31 @@ function TeaserOverlay(renderer, kwargs) {
 			.attr("cy", (d) => renderer.sy(d[1]))
 			.attr("r", this.archorRadius)
 			.attr("fill", (_, i) => d3.rgb(...utils.baseColors[i]).darker())
-			.attr("stroke", (_, i) => "white")
+			.attr("stroke", () => "white")
 			.style("cursor", "pointer");
 
 		svg.anchors = anchors;
 
+		let self = this;
 		svg.drag = d3.drag()
-			.on("start", function () {
+			.on("start", () => {
 				renderer.shouldPlayGrandTourPrev = renderer.shouldPlayGrandTour;
 				renderer.shouldPlayGrandTour = false;
 				renderer.isDragging = true;
 			})
-			.on("drag", (d, i) => {
-				let dx = renderer.sx.invert(d3.event.dx) - renderer.sx.invert(0);
-				let dy = renderer.sy.invert(d3.event.dy) - renderer.sy.invert(0);
-				let x = renderer.sx.invert(d3.event.x);
-				let y = renderer.sy.invert(d3.event.y);
+			.on("drag", function (event) {
+				let dx = renderer.sx.invert(event.dx) - renderer.sx.invert(0);
+				let dy = renderer.sy.invert(event.dy) - renderer.sy.invert(0);
 				let matrix = renderer.gt.getMatrix();
+
+				const e = svg.anchors.nodes();
+				const i = e.indexOf(this);
 
 				matrix[i][0] += dx;
 				matrix[i][1] += dy;
-				// matrix[i][0] = x;
-				// matrix[i][1] = y;
 				matrix = utils.orthogonalize(matrix, i);
-
 				renderer.gt.setMatrix(matrix);
-
-				this.redrawAxis();
-				// renderer.render(0);
+				self.redrawAxis();
 			})
 			.on("end", function () {
 				renderer.isDragging = false;
@@ -431,11 +430,11 @@ function TeaserOverlay(renderer, kwargs) {
 			});
 
 		anchors
-			.on("mouseover", (_, i) => {
+			.on("mouseover", () => {
 				renderer.gt.STEPSIZE_PREV = renderer.gt.STEPSIZE;
 				renderer.gt.STEPSIZE = renderer.gt.STEPSIZE * 0.2;
 			})
-			.on("mouseout", (_, i) => {
+			.on("mouseout", () => {
 				renderer.gt.STEPSIZE = renderer.gt.STEPSIZE_PREV;
 				delete renderer.gt.STEPSIZE_PREV;
 			})
@@ -447,7 +446,7 @@ function TeaserOverlay(renderer, kwargs) {
 
 		if (renderer.gt !== undefined) {
 			let handlePos = renderer.gt.project(
-				math.eye(renderer.dataObj.ndim)._data,
+				math.identity(renderer.dataObj.ndim)._data,
 			);
 
 			svg.selectAll(".anchor")
