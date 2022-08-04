@@ -280,7 +280,9 @@ export function getLabelNames(adversarial = false, dataset = undefined) {
 }
 
 export function getChromTeaserDataURL() {
-	return ["data/eigs.arrow"];
+	return [
+		new URL('../data/eigs.arrow', import.meta.url).href
+	]
 }
 
 export function getTextureURL(dataset = getDataset(), datasetType = "test") {
