@@ -1,15 +1,27 @@
-const teaserFigure = document.querySelector("d-figure.teaser");
-var teaser;
+// @ts-check
+import * as d3 from "d3";
+
+import { TeaserRenderer } from './TeaserRenderer';
+import * as utils from './utils';
+
+const teaserFigure = document.querySelector("d-figure.teaser")!;
+let teaser: typeof TeaserRenderer;
+let allViews: typeof teaser[] = [];
+
+let c = utils.CLEAR_COLOR.map(d => d * 255);
+// @ts-expect-error
+d3.selectAll('.flex-item').style('background', d3.rgb(...c))
 
 teaserFigure.addEventListener("ready", function() {
   console.log('teaserFigure ready');
   var epochs = d3.range(0, 1, 1);
-  // var urls = utils.getTeaserDataURL();
   var urls = utils.getChromTeaserDataURL();
   var [gl, programs] = utils.initGL("#teaser", [
-    ["shaders/teaser_vertex.glsl", "shaders/teaser_fragment.glsl"]
+    [
+		new URL("./shaders/teaser_vertex.glsl", import.meta.url).href,
+		new URL("./shaders/teaser_fragment.glsl", import.meta.url).href,
+	]
   ]);
-
 
   teaser = new TeaserRenderer(gl, programs[0], {
     epochs: epochs,
@@ -31,21 +43,7 @@ teaserFigure.addEventListener("ready", function() {
 
   teaser = utils.loadDataToRenderer(urls, teaser);
 
-  utils.addDatasetListener(function(){
-    // var urls = utils.getTeaserDataURL();
-    // teaser = utils.loadDataToRenderer(urls, teaser);
-    // teaser.overlay.initLegend(utils.baseColors.slice(0,10), utils.getLabelNames());
-    // teaser.overlay.resize();
-
-    // if(utils.getDataset() == 'cifar10'){
-    //   teaser.setColorFactor(0.0);
-    // }else{
-    //   teaser.setColorFactor(utils.COLOR_FACTOR);
-    // }
-  });
-  
   window.addEventListener('resize', ()=>{
-    // teaser.overlay.resize();
     teaser.setFullScreen(teaser.isFullScreen);
   });
 
@@ -68,4 +66,4 @@ teaserFigure.addEventListener("offscreen", function() {
   if(teaser && teaser.pause){
     teaser.pause();
   }
-});    
+});

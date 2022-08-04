@@ -1,12 +1,13 @@
-function* iterN(it, n) {
-	let i = 0;
-	for (let x of it) {
-		if (i % n === 0) yield x;
-		i++;
-	}
-}
+// @ts-check
+import * as arrow from "apache-arrow";
+import * as d3 from "d3";
+import * as math from "mathjs";
 
-function TeaserRenderer(gl, program, kwargs) {
+import * as utils from "./utils";
+import { GrandTour } from "./GrandTour";
+import { TeaserOverlay } from "./TeaserOverlay";
+
+export function TeaserRenderer(gl: WebGLRenderingContext, program: WebGLProgram, kwargs) {
 	this.gl = gl;
 	this.program = program;
 	this.id = gl.canvas.id;
@@ -47,7 +48,6 @@ function TeaserRenderer(gl, program, kwargs) {
 	};
 
 	this.initData = async function (buffer, url) {
-		let arrow = await import("https://esm.sh/apache-arrow?bundle");
 		let table = arrow.tableFromIPC(buffer);
 
 		let ndim = 5;
@@ -59,10 +59,10 @@ function TeaserRenderer(gl, program, kwargs) {
 		let fields = d3.range(ndim).map((i) => "E" + i);
 
 		let mapping = Object.fromEntries(
-			['A0', 'A1', 'B0', 'B1', 'B2'].map((name, i) => [name, i])
+			["A0", "A1", "B0", "B1", "B2"].map((name, i) => [name, i]),
 		);
 
-		for (let row of iterN(table, dsample)) {
+		for (let row of utils.iterN(table, dsample)) {
 			labels.push(mapping[row["name"]]);
 			for (let field of fields) {
 				arr.push(row[field]);
@@ -72,7 +72,6 @@ function TeaserRenderer(gl, program, kwargs) {
 		let npoint = labels.length;
 
 		arr = new Float32Array(arr);
-
 
 		this.dataObj.labels = labels;
 		this.shouldRecalculateColorRect = true;
@@ -199,7 +198,11 @@ function TeaserRenderer(gl, program, kwargs) {
 
 		if (this.textureCoordLoc !== -1) {
 			gl.bindBuffer(gl.ARRAY_BUFFER, this.textureCoordBuffer);
-			gl.bufferData(gl.ARRAY_BUFFER, flatten(textureCoords), gl.STATIC_DRAW);
+			gl.bufferData(
+				gl.ARRAY_BUFFER,
+				utils.flatten(textureCoords),
+				gl.STATIC_DRAW,
+			);
 			gl.vertexAttribPointer(this.textureCoordLoc, 2, gl.FLOAT, false, 0, 0);
 			gl.enableVertexAttribArray(this.textureCoordLoc);
 		}
@@ -444,21 +447,25 @@ function TeaserRenderer(gl, program, kwargs) {
 		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
 		gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-		gl.bufferData(gl.ARRAY_BUFFER, flatten(points), gl.STATIC_DRAW);
+		gl.bufferData(gl.ARRAY_BUFFER, utils.flatten(points), gl.STATIC_DRAW);
 		gl.vertexAttribPointer(positionLoc, 3, gl.FLOAT, false, 0, 0);
 		gl.enableVertexAttribArray(positionLoc);
 
 		gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
 		gl.bufferData(
 			gl.ARRAY_BUFFER,
-			new Uint8Array(flatten(colors)),
+			new Uint8Array(utils.flatten(colors)),
 			gl.STATIC_DRAW,
 		);
 		gl.vertexAttribPointer(colorLoc, 4, gl.UNSIGNED_BYTE, true, 0, 0);
 		gl.enableVertexAttribArray(colorLoc);
 
 		let c0 = bgColors.map((c, i) => [c[0], c[1], c[2], utils.pointAlpha]);
-		gl.bufferData(gl.ARRAY_BUFFER, new Uint8Array(flatten(c0)), gl.STATIC_DRAW);
+		gl.bufferData(
+			gl.ARRAY_BUFFER,
+			new Uint8Array(utils.flatten(c0)),
+			gl.STATIC_DRAW,
+		);
 
 		let c1;
 		if (this.mode === "point") {
@@ -474,7 +481,11 @@ function TeaserRenderer(gl, program, kwargs) {
 				i,
 			) => [c[0], c[1], c[2], dataObj.alphas[Math.floor(i / 6)]]);
 		}
-		gl.bufferData(gl.ARRAY_BUFFER, new Uint8Array(flatten(c1)), gl.STATIC_DRAW);
+		gl.bufferData(
+			gl.ARRAY_BUFFER,
+			new Uint8Array(utils.flatten(c1)),
+			gl.STATIC_DRAW,
+		);
 
 		if (this.mode === "point") {
 			gl.uniform1i(this.isDrawingAxisLoc, 0);

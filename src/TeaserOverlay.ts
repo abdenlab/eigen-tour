@@ -1,4 +1,9 @@
-function TeaserOverlay(renderer, kwargs) {
+// @ts-check
+import * as d3 from "d3";
+import * as math from "mathjs";
+import * as utils from "./utils";
+
+export function TeaserOverlay(renderer, kwargs) {
 	let canvas = renderer.gl.canvas;
 	let width = canvas.clientWidth;
 	let height = canvas.clientHeight;
@@ -274,15 +279,12 @@ function TeaserOverlay(renderer, kwargs) {
 		.attr("class", "bannerText");
 	this.bannerText = this.banner.selectAll(".bannerText");
 
-	function clamp(min, max, v) {
-		return Math.max(max, Math.min(min, v));
-	}
 
 	this.updateArchorRadius = function (mode) {
 		if (mode == "point") {
-			this.archorRadius = clamp(7, 10, Math.min(width, height) / 50);
+			this.archorRadius = utils.clamp(7, 10, Math.min(width, height) / 50);
 		} else {
-			this.archorRadius = clamp(7, 15, Math.min(width, height) / 30);
+			this.archorRadius = utils.clamp(7, 15, Math.min(width, height) / 30);
 		}
 		this.svg.selectAll(".anchor")
 			.attr("r", this.archorRadius);
@@ -447,7 +449,7 @@ function TeaserOverlay(renderer, kwargs) {
 
 		if (renderer.gt !== undefined) {
 			let handlePos = renderer.gt.project(
-				math.eye(renderer.dataObj.ndim)._data,
+				math.identity(renderer.dataObj.ndim)._data,
 			);
 
 			svg.selectAll(".anchor")

@@ -1,4 +1,10 @@
-function GrandTour(ndim, init_matrix) {
+// @ts-check
+import * as math from "mathjs";
+import numeric from "numeric";
+
+import * as utils from "./utils";
+
+export function GrandTour(ndim, init_matrix) {
   this.ndim = ndim;
   this.N = ndim*ndim;
 
@@ -21,7 +27,7 @@ function GrandTour(ndim, init_matrix) {
       for(let i=this.N; i<newNdim*newNdim; i++){
         this.thetas[i] = (Math.random()-0.5) * 2 * Math.PI;
       }
-      this.matrix = utils.embed(this.matrix, math.eye(newNdim)._data);
+      this.matrix = utils.embed(this.matrix, math.identity(newNdim)._data);
     }else if(newNdim < this.ndim){
       this.matrix = this.matrix.slice(0,newNdim).map(row=>row.slice(0,newNdim));
       this.matrix = utils.orthogonalize(this.matrix);
@@ -39,7 +45,7 @@ function GrandTour(ndim, init_matrix) {
         // 
         // another implementation similar to torus method
         this.angles = this.thetas;
-        this.matrix = math.eye(this.ndim)._data;
+        this.matrix = math.identity(this.ndim)._data;
       } else {
         // torus method
         // this.angles = this.angles.map(
@@ -50,7 +56,7 @@ function GrandTour(ndim, init_matrix) {
           theta * dt * this.STEPSIZE );
       }
       // torus method
-      // this.matrix = math.eye(this.ndim)._data;
+      // this.matrix = math.identity(this.ndim)._data;
       let k = -1;
       for (let i=0; i<this.ndim; i++) {
         for (let j=0; j<this.ndim; j++) {
@@ -72,7 +78,7 @@ function GrandTour(ndim, init_matrix) {
 
 
   this.getRotationMatrix = function(dim0, dim1, theta) {
-    let res = math.eye(this.ndim)._data;
+    let res = math.identity(this.ndim)._data;
     res[dim0][dim0] = Math.cos(theta);
     res[dim0][dim1] = Math.sin(theta);
     res[dim1][dim0] = -Math.sin(theta);
@@ -82,7 +88,6 @@ function GrandTour(ndim, init_matrix) {
 
 
   this.multiplyRotationMatrix = function(matrix, i, j, theta) {
-    
     if(theta == 0){
       return matrix;
     }
@@ -123,9 +128,6 @@ function GrandTour(ndim, init_matrix) {
 
     return res;
   };
-
-
-
 
   this.setNdim(this.ndim);
   this.matrix = this.getMatrix(0);
