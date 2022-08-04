@@ -4,6 +4,9 @@ import * as d3 from "d3";
 import { TeaserRenderer } from './TeaserRenderer';
 import * as utils from './utils';
 
+import fs from './shaders/teaser_fragment.glsl';
+import vs from './shaders/teaser_vertex.glsl';
+
 const teaserFigure = document.querySelector("d-figure.teaser")!;
 let teaser: typeof TeaserRenderer;
 let allViews: typeof teaser[] = [];
@@ -16,12 +19,7 @@ teaserFigure.addEventListener("ready", function() {
   console.log('teaserFigure ready');
   var epochs = d3.range(0, 1, 1);
   var urls = utils.getChromTeaserDataURL();
-  var [gl, programs] = utils.initGL("#teaser", [
-    [
-		new URL("./shaders/teaser_vertex.glsl", import.meta.url).href,
-		new URL("./shaders/teaser_fragment.glsl", import.meta.url).href,
-	]
-  ]);
+  var [gl, programs] = utils.initGL("#teaser", [[fs, vs]]);
 
   teaser = new TeaserRenderer(gl, programs[0], {
     epochs: epochs,

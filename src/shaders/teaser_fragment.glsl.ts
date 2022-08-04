@@ -1,3 +1,4 @@
+export default `
 precision mediump float;
 
 uniform int mode;
@@ -15,7 +16,6 @@ void main() {
     gl_FragColor = v_color;
     if (!isDrawingAxis) {
       float dist = distance(vec2(0.5, 0.5), gl_PointCoord);
-      
       float eps = 0.1;
       float a = - 1.0 / (2.0*eps);
       float b = 0.5 + 1.0/(4.0*eps);
@@ -42,4 +42,4 @@ void main() {
     }
   }
 }
-
+`;

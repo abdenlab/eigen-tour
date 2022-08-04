@@ -287,12 +287,12 @@ export function getTextureURL(dataset = getDataset(), datasetType = "test") {
 	return "data/softmax/" + dataset + "/input-" + datasetType + ".png";
 }
 
-export function initGL(canvasid, shaderPathPairs) {
-	let canvas = document.getElementById(canvasid.slice(1));
-	let gl = canvas.getContext("webgl", { premultipliedAlpha: false });
+export function initGL(canvasid: string, shaderPairs: [string, string][]) {
+	let canvas = document.getElementById(canvasid.slice(1)) as HTMLCanvasElement;
+	let gl = canvas.getContext("webgl", { premultipliedAlpha: false })!;
 	let programs = [];
-	for (let i = 0; i < shaderPathPairs.length; i++) {
-		let program = initShaders(gl, shaderPathPairs[i][0], shaderPathPairs[i][1]);
+	for (const [fs, vs] of shaderPairs) {
+		let program = initShaders(gl, fs, vs);
 		programs.push(program);
 	}
 	return [gl, programs];
@@ -300,7 +300,7 @@ export function initGL(canvasid, shaderPathPairs) {
 
 export function loadDataWithCallback(urls, callback) {
 	for (let i = 0; i < urls.length; i++) {
-		utils.loadDataBin(urls[i], (buffer, url) => {
+		loadDataBin(urls[i], (buffer, url) => {
 			callback(buffer, url, i, urls.length);
 		});
 	}
@@ -352,7 +352,7 @@ export function loadDataToRenderer(urls, renderer, onReadyCallback) {
 	}
 
 	for (let i = 0; i < urls.length; i++) {
-		utils.loadDataBin(urls[i], (buffer, url) => {
+		loadDataBin(urls[i], (buffer, url) => {
 			renderer.initData(buffer, url, i, urls.length, onReadyCallback);
 		});
 	}
@@ -679,7 +679,7 @@ export function setTeaser(
 	});
 }
 
-export function* iterN(it, n) {
+export function* iterN<T>(it: Iterable<T>, n: number) {
 	let i = 0;
 	for (let x of it) {
 		if (i % n === 0) yield x;
@@ -687,65 +687,43 @@ export function* iterN(it, n) {
 	}
 }
 
-// Get a file as a string using  AJAX
-function loadFileAJAX(name) {
-	var xhr = new XMLHttpRequest(),
-		okStatus = document.location.protocol === "file:" ? 0 : 200;
-	xhr.open("GET", name, false);
-	xhr.send(null);
-	return xhr.status == okStatus ? xhr.responseText : null;
+function getShader(gl: WebGLRenderingContext, shaderScript: string, type: number) {
+	var shader = gl.createShader(type)!;
+	gl.shaderSource(shader, shaderScript);
+	gl.compileShader(shader);
+	if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+		console.error(gl.getShaderInfoLog(shader));
+		throw new Error("Shader failed to compile");
+	}
+	return shader;
 }
 
-
-export function initShaders(gl, vShaderName, fShaderName) {
-	function getShader(gl, shaderName, type) {
-		var shader = gl.createShader(type),
-			shaderScript = loadFileAJAX(shaderName);
-		if (!shaderScript) {
-			alert("Could not find shader source: " + shaderName);
-		}
-		gl.shaderSource(shader, shaderScript);
-		gl.compileShader(shader);
-
-		if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-			alert(gl.getShaderInfoLog(shader));
-			return null;
-		}
-		return shader;
-	}
-	var vertexShader = getShader(gl, vShaderName, gl.VERTEX_SHADER),
-		fragmentShader = getShader(gl, fShaderName, gl.FRAGMENT_SHADER),
-		program = gl.createProgram();
-
+export function initShaders(gl: WebGLRenderingContext, fs: string, vs: string) {
+	var fragmentShader = getShader(gl, fs, gl.FRAGMENT_SHADER);
+	var vertexShader = getShader(gl, vs, gl.VERTEX_SHADER);
+	var program = gl.createProgram()!;
 	gl.attachShader(program, vertexShader);
 	gl.attachShader(program, fragmentShader);
 	gl.linkProgram(program);
-
-	if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-		alert("Could not initialise shaders");
-		return null;
-	}
-
 	return program;
 }
 
-export function transpose( m )
-{
-    if ( !m.matrix ) {
-        return "transpose(): trying to transpose a non-matrix";
-    }
+export function transpose(m) {
+	if (!m.matrix) {
+		return "transpose(): trying to transpose a non-matrix";
+	}
 
-    var result = [];
-    for ( var i = 0; i < m.length; ++i ) {
-        result.push( [] );
-        for ( var j = 0; j < m[i].length; ++j ) {
-            result[i].push( m[j][i] );
-        }
-    }
+	var result = [];
+	for (var i = 0; i < m.length; ++i) {
+		result.push([]);
+		for (var j = 0; j < m[i].length; ++j) {
+			result[i].push(m[j][i]);
+		}
+	}
 
-    result.matrix = true;
+	result.matrix = true;
 
-    return result;
+	return result;
 }
 
 export function flatten(v) {

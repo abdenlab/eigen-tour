@@ -408,12 +408,15 @@ export function TeaserOverlay(renderer, kwargs) {
 				renderer.shouldPlayGrandTour = false;
 				renderer.isDragging = true;
 			})
-			.on("drag", (d, i) => {
-				let dx = renderer.sx.invert(d3.event.dx) - renderer.sx.invert(0);
-				let dy = renderer.sy.invert(d3.event.dy) - renderer.sy.invert(0);
-				let x = renderer.sx.invert(d3.event.x);
-				let y = renderer.sy.invert(d3.event.y);
+			.on("drag", (event) => {
+				let dx = renderer.sx.invert(event.dx) - renderer.sx.invert(0);
+				let dy = renderer.sy.invert(event.dy) - renderer.sy.invert(0);
+				let x = renderer.sx.invert(event.x);
+				let y = renderer.sy.invert(event.y);
 				let matrix = renderer.gt.getMatrix();
+
+				const e = event.selection.nodes();
+				const i = e.indexOf(this);
 
 				matrix[i][0] += dx;
 				matrix[i][1] += dy;
