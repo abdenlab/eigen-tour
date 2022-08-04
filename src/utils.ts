@@ -287,15 +287,11 @@ export function getTextureURL(dataset = getDataset(), datasetType = "test") {
 	return "data/softmax/" + dataset + "/input-" + datasetType + ".png";
 }
 
-export function initGL(canvasid: string, shaderPairs: [string, string][]) {
+export function initGL(canvasid: string, fs: string, vs: string) {
 	let canvas = document.getElementById(canvasid.slice(1)) as HTMLCanvasElement;
 	let gl = canvas.getContext("webgl", { premultipliedAlpha: false })!;
-	let programs = [];
-	for (const [fs, vs] of shaderPairs) {
-		let program = initShaders(gl, fs, vs);
-		programs.push(program);
-	}
-	return [gl, programs];
+	let program = initShaders(gl, fs, vs);
+	return { gl, program };
 }
 
 export function loadDataWithCallback(urls, callback) {
@@ -425,17 +421,13 @@ export const baseColorsHex = [...d3.schemeCategory10];
 baseColorsHex.push("#444444");
 baseColorsHex.push("#444444");
 
-/**
- * @param {string} hex
- * @return {[r: number, g: number, b: number]}
- */
-function hexToRgb(hex) {
-	let result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+function hexToRgb(hex: string) {
+	let result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)!;
 	return [
 		parseInt(result[1], 16),
 		parseInt(result[2], 16),
 		parseInt(result[3], 16),
-	];
+	] as const;
 }
 
 export const baseColors = baseColorsHex.map(hexToRgb);

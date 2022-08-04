@@ -397,37 +397,31 @@ export function TeaserOverlay(renderer, kwargs) {
 			.attr("cy", (d) => renderer.sy(d[1]))
 			.attr("r", this.archorRadius)
 			.attr("fill", (_, i) => d3.rgb(...utils.baseColors[i]).darker())
-			.attr("stroke", (_, i) => "white")
+			.attr("stroke", () => "white")
 			.style("cursor", "pointer");
 
 		svg.anchors = anchors;
 
+		let self = this;
 		svg.drag = d3.drag()
-			.on("start", function () {
+			.on("start", () => {
 				renderer.shouldPlayGrandTourPrev = renderer.shouldPlayGrandTour;
 				renderer.shouldPlayGrandTour = false;
 				renderer.isDragging = true;
 			})
-			.on("drag", (event) => {
+			.on("drag", function (event) {
 				let dx = renderer.sx.invert(event.dx) - renderer.sx.invert(0);
 				let dy = renderer.sy.invert(event.dy) - renderer.sy.invert(0);
-				let x = renderer.sx.invert(event.x);
-				let y = renderer.sy.invert(event.y);
 				let matrix = renderer.gt.getMatrix();
 
-				const e = event.selection.nodes();
+				const e = svg.anchors.nodes();
 				const i = e.indexOf(this);
 
 				matrix[i][0] += dx;
 				matrix[i][1] += dy;
-				// matrix[i][0] = x;
-				// matrix[i][1] = y;
 				matrix = utils.orthogonalize(matrix, i);
-
 				renderer.gt.setMatrix(matrix);
-
-				this.redrawAxis();
-				// renderer.render(0);
+				self.redrawAxis();
 			})
 			.on("end", function () {
 				renderer.isDragging = false;
@@ -436,11 +430,11 @@ export function TeaserOverlay(renderer, kwargs) {
 			});
 
 		anchors
-			.on("mouseover", (_, i) => {
+			.on("mouseover", () => {
 				renderer.gt.STEPSIZE_PREV = renderer.gt.STEPSIZE;
 				renderer.gt.STEPSIZE = renderer.gt.STEPSIZE * 0.2;
 			})
-			.on("mouseout", (_, i) => {
+			.on("mouseout", () => {
 				renderer.gt.STEPSIZE = renderer.gt.STEPSIZE_PREV;
 				delete renderer.gt.STEPSIZE_PREV;
 			})

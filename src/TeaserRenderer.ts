@@ -7,7 +7,12 @@ import * as utils from "./utils";
 import { GrandTour } from "./GrandTour";
 import { TeaserOverlay } from "./TeaserOverlay";
 
-export function TeaserRenderer(gl: WebGLRenderingContext, program: WebGLProgram, kwargs) {
+interface TeaserRendererOptions {
+    epochs: number;
+    shouldAutoNextEpoch: boolean;
+}
+
+export function TeaserRenderer(gl: WebGLRenderingContext, program: WebGLProgram, kwargs: TeaserRendererOptions) {
 	this.gl = gl;
 	this.program = program;
 	this.id = gl.canvas.id;
@@ -333,7 +338,7 @@ export function TeaserRenderer(gl: WebGLRenderingContext, program: WebGLProgram,
 		}
 	};
 
-	this.render = function (dt) {
+	this.render = function (dt: number) {
 		if (this.dataObj.dataTensor === undefined) {
 			return;
 		}

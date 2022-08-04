@@ -19,9 +19,9 @@ teaserFigure.addEventListener("ready", function() {
   console.log('teaserFigure ready');
   var epochs = d3.range(0, 1, 1);
   var urls = utils.getChromTeaserDataURL();
-  var [gl, programs] = utils.initGL("#teaser", [[fs, vs]]);
+  var { gl, program } = utils.initGL("#teaser", fs, vs);
 
-  teaser = new TeaserRenderer(gl, programs[0], {
+  teaser = new TeaserRenderer(gl, program, {
     epochs: epochs,
     shouldAutoNextEpoch: true
   });
