@@ -41,7 +41,12 @@ export function clamp(min: number, max: number, v: number) {
 
 type Scale = d3.ScaleContinuousNumeric<number, number, never>;
 
-export function mixScale(s0: Scale, s1: Scale, progress: number, func: (x: number) => number) {
+export function mixScale(
+	s0: Scale,
+	s1: Scale,
+	progress: number,
+	func: (x: number) => number,
+) {
 	let range0 = s0.range();
 	let range1 = s1.range();
 
@@ -277,8 +282,8 @@ export function getLabelNames(adversarial = false, dataset = undefined) {
 
 export function getChromTeaserDataURL() {
 	return [
-		new URL('../data/eigs.arrow', import.meta.url).href
-	]
+		new URL("../data/eigs.arrow", import.meta.url).href,
+	];
 }
 
 export function getTextureURL(dataset = getDataset(), datasetType = "test") {
@@ -677,7 +682,11 @@ export function* iterN<T>(it: Iterable<T>, n: number) {
 	}
 }
 
-function getShader(gl: WebGLRenderingContext, shaderScript: string, type: number) {
+function getShader(
+	gl: WebGLRenderingContext,
+	shaderScript: string,
+	type: number,
+) {
 	var shader = gl.createShader(type)!;
 	gl.shaderSource(shader, shaderScript);
 	gl.compileShader(shader);

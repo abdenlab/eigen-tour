@@ -1,23 +1,24 @@
 {
-  "name": "eigen-tour",
-  "version": "0.0.0",
-  "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
-  },
-  "author": "Trevor Manz",
-  "license": "MIT",
-  "dependencies": {
-    "@types/d3": "^7.4.0",
-    "@types/numeric": "^1.2.2",
-    "apache-arrow": "^9.0.0",
-    "d3": "^7.6.1",
-    "mathjs": "^11.0.1",
-    "numeric": "^1.2.6"
-  },
-  "devDependencies": {
-    "typescript": "^4.7.4",
-    "vite": "^3.0.4"
-  }
+	"name": "eigen-tour",
+	"version": "0.0.0",
+	"scripts": {
+		"dev": "vite",
+		"build": "vite build",
+		"preview": "vite preview",
+		"fmt": "deno fmt --ignore=dist,node_modules --options-use-tabs"
+	},
+	"author": "Trevor Manz",
+	"license": "MIT",
+	"dependencies": {
+		"@types/d3": "^7.4.0",
+		"@types/numeric": "^1.2.2",
+		"apache-arrow": "^9.0.0",
+		"d3": "^7.6.1",
+		"mathjs": "^11.0.1",
+		"numeric": "^1.2.6"
+	},
+	"devDependencies": {
+		"typescript": "^4.7.4",
+		"vite": "^3.0.4"
+	}
 }

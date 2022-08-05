@@ -5,7 +5,10 @@ import * as utils from "./utils";
 
 export interface TeaserOverlayOptions {}
 
-export function TeaserOverlay(renderer: any, opts: Partial<TeaserOverlayOptions> = {}) {
+export function TeaserOverlay(
+	renderer: any,
+	opts: Partial<TeaserOverlayOptions> = {},
+) {
 	let canvas = renderer.gl.canvas;
 	let width = canvas.clientWidth;
 	let height = canvas.clientHeight;
@@ -281,7 +284,6 @@ export function TeaserOverlay(renderer: any, opts: Partial<TeaserOverlayOptions>
 		.append("p")
 		.attr("class", "bannerText");
 	this.bannerText = this.banner.selectAll(".bannerText");
-
 
 	this.updateArchorRadius = function (mode) {
 		if (mode == "point") {
