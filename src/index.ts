@@ -2,13 +2,15 @@ import * as d3 from "d3";
 
 import { TeaserRenderer } from "./TeaserRenderer";
 import * as utils from "./utils";
-
 import fs from "./shaders/teaser_fragment.glsl";
 import vs from "./shaders/teaser_vertex.glsl";
 
+import type { Renderer } from "./types";
+
 const teaserFigure = document.querySelector("d-figure.teaser")!;
-let teaser: typeof TeaserRenderer;
-let allViews: typeof teaser[] = [];
+
+let teaser: TeaserRenderer;
+let allViews: Renderer[] = [];
 
 let c = utils.CLEAR_COLOR.map((d) => d * 255);
 // @ts-expect-error
@@ -47,7 +49,7 @@ teaserFigure.addEventListener("ready", function () {
 
 teaserFigure.addEventListener("onscreen", function () {
 	console.log("teaser onscreen");
-	if (teaser && teaser.play) {
+	if ("play" in teaser) {
 		teaser.shouldRender = true;
 		teaser.play();
 	}
@@ -59,7 +61,7 @@ teaserFigure.addEventListener("onscreen", function () {
 });
 
 teaserFigure.addEventListener("offscreen", function () {
-	if (teaser && teaser.pause) {
+	if ("pause" in teaser) {
 		teaser.pause();
 	}
 });

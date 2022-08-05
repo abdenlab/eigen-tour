@@ -2,12 +2,14 @@ import * as d3 from "d3";
 import * as math from "mathjs";
 import numeric from "numeric";
 
+import type { Scale, Point, ColorRGB, Renderer, ColorRGBA, } from "./types";
+
 export const CLEAR_COLOR = [1, 1, 1] as const;
 export const CLEAR_COLOR_SMALL_MULTIPLE = [1, 1, 1] as const;
 export const MIN_EPOCH = 0;
 export const MAX_EPOCH = 99;
 export const COLOR_FACTOR = 0.9;
-export const dataset = "mnist";
+export let dataset = "mnist";
 export const datasetListener = [];
 export const pointAlpha = 255 * 0.1;
 
@@ -38,8 +40,6 @@ export const buttonColors = {
 export function clamp(min: number, max: number, v: number) {
 	return Math.max(max, Math.min(min, v));
 }
-
-type Scale = d3.ScaleContinuousNumeric<number, number, never>;
 
 export function mixScale(
 	s0: Scale,
@@ -111,15 +111,13 @@ export function updateScale_span(
 		.range([0, 1]);
 }
 
-export type Point = [number, number, number];
-export type ColorRGBA = [number, number, number, number];
 
 export function updateScale_center(
 	points: Point[],
 	canvas: HTMLCanvasElement,
-	sx: d3.ScaleLinear<number, number, never>,
-	sy: d3.ScaleLinear<number, number, never>,
-	sz: d3.ScaleLinear<number, number, never>,
+	sx: Scale,
+	sy: Scale,
+	sz: Scale,
 	scaleFactor = 1.0,
 	marginRight?: number,
 	marginBottom?: number,
@@ -136,7 +134,7 @@ export function updateScale_center(
 		marginLeft = 32;
 	}
 	if (marginRight === undefined) {
-		marginRight = d3.max(Object.values(legendLeft)) + 15;
+		marginRight = d3.max(Object.values(legendLeft))! + 15;
 	}
 
 	let vmax = math.max(math.abs(points), 0);
@@ -213,8 +211,8 @@ export function scaleRows(matrix, isRowSelected, beta1, beta0) {
 	return res;
 }
 
-export function setDataset(datasetName, callback0) {
-	this.dataset = datasetName;
+export function setDataset(datasetName: string, callback0?: (name: string) => void) {
+	dataset = datasetName;
 	for (let callback of datasetListener) {
 		callback(datasetName);
 	}
@@ -238,7 +236,7 @@ export function clearDatasetListener() {
 	}
 }
 
-export function getLabelNames(adversarial = false, dataset = undefined) {
+export function getLabelNames(adversarial = false, dataset?: string) {
 	if (dataset === undefined) {
 		dataset = getDataset();
 	}
@@ -344,7 +342,7 @@ function createBanner(renderer) {
 	}
 }
 
-export function loadDataToRenderer(urls, renderer, onReadyCallback) {
+export function loadDataToRenderer(urls: string, renderer: Renderer, onReadyCallback) {
 	if (renderer.overlay) {
 		createBanner(renderer);
 		bannerAnimation(renderer);
@@ -381,22 +379,28 @@ export function reshape(array, shape) {
 	return res;
 }
 
-export function cacheAll(urls) {
-	for (let url of urls) loadDataBin(url, () => {});
-}
+const noop = () => {};
 
-const cache = {};
-export async function loadDataBin(url, callback) {
-	if (!(url in cache)) {
-		let response = await fetch(url);
-		cache[url] = await response.arrayBuffer();
+export function cacheAll(urls: string[]) {
+	for (let url of urls) {
+		loadDataBin(url, noop);
 	}
-	callback(cache[url], url);
 }
 
-export function loadDataCsv(fns, renderer) {
+const cache = new Map<string, ArrayBuffer>();
+export async function loadDataBin(url: string, callback: (buf: ArrayBuffer, url: string) => void) {
+	let buffer = cache.get(url);
+	if (!buffer) {
+		let response = await fetch(url);
+		buffer = await response.arrayBuffer();
+		cache.set(url, buffer);
+	}
+	callback(buffer, url);
+}
+
+export function loadDataCsv(fns: string[], renderer: Renderer) {
 	let promises = fns.map((fn) => d3.text(fn));
-	Promise.all(promises).then(function (dataRaw) {
+	Promise.all(promises).then((dataRaw) => {
 		renderer.initData(dataRaw);
 		renderer.play();
 	});
@@ -424,7 +428,7 @@ export const baseColorsHex = [...d3.schemeCategory10];
 baseColorsHex.push("#444444");
 baseColorsHex.push("#444444");
 
-function hexToRgb(hex: string): [number, number, number] {
+function hexToRgb(hex: string): ColorRGB {
 	let result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)!;
 	return [
 		parseInt(result[1], 16),
@@ -506,7 +510,7 @@ export function orthogonalize(matrix, priorityRowIndex = 0) {
 	return matrix;
 }
 
-export function point2rect(points, npoint, sideLength, yUp = false) {
+export function point2rect(points: Point[], npoint: number, sideLength: number, yUp = false) {
 	let res = [];
 
 	//points
@@ -539,7 +543,7 @@ export function point2rect(points, npoint, sideLength, yUp = false) {
 	return res;
 }
 
-export function color2rect(colors, npoint, ndim) {
+export function color2rect<Color extends ColorRGB | ColorRGBA>(colors: Color[], npoint: number, ndim: number) {
 	let pointColors = colors.slice(0, npoint)
 		.map((c) => [c, c, c, c, c, c])
 		.reduce((a, b) => a.concat(b), []);
@@ -548,7 +552,7 @@ export function color2rect(colors, npoint, ndim) {
 }
 
 export function getTextureCoord(
-	i,
+	i: number,
 	nRow = 10,
 	nCol = 100,
 	isAdversarial = false,
@@ -586,8 +590,8 @@ export function getTextureCoord(
 	return [ur, ul, ll, ur, ll, lr];
 }
 
-export function loadTexture(gl, url) {
-	function isPowerOf2(x) {
+export function loadTexture(gl: WebGLRenderingContext, url: string) {
+	function isPowerOf2(x: number) {
 		// @ts-expect-error
 		return x & (x - 1) == 0;
 	}
@@ -640,13 +644,13 @@ export function loadTexture(gl, url) {
 }
 
 export function setTeaser(
-	renderer,
-	datasetname,
-	epochIndex,
-	classes,
+	renderer: Renderer,
+	datasetname: string,
+	epochIndex: number,
+	classes: string[],
 	shouldAutoNextEpoch = true,
 	timeout = 0,
-	callback = undefined,
+	callback?: () => void,
 ) {
 	setDataset(datasetname, () => {
 		renderer.setEpochIndex(epochIndex);
@@ -707,12 +711,14 @@ export function initShaders(gl: WebGLRenderingContext, fs: string, vs: string) {
 	return program;
 }
 
-export function transpose(m) {
+type Matrix = number[][] & { matrix: true };
+
+export function transpose(m: Matrix) {
 	if (!m.matrix) {
-		return "transpose(): trying to transpose a non-matrix";
+		throw new Error("transpose(): trying to transpose a non-matrix");
 	}
 
-	var result = [];
+	var result = [] as unknown as Matrix;
 	for (var i = 0; i < m.length; ++i) {
 		result.push([]);
 		for (var j = 0; j < m[i].length; ++j) {
@@ -725,7 +731,7 @@ export function transpose(m) {
 	return result;
 }
 
-export function flatten(v) {
+export function flatten(v: Matrix) {
 	if (v.matrix === true) {
 		v = transpose(v);
 	}

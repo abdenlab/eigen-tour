@@ -7,6 +7,8 @@ import * as utils from "./utils";
 import { GrandTour } from "./GrandTour";
 import { TeaserOverlay, TeaserOverlayOptions } from "./TeaserOverlay";
 
+import type { Point, ColorRGBA, Renderer } from "./types";
+
 interface Data {
 	labels: number[];
 	dataTensor: number[][][];
@@ -15,8 +17,8 @@ interface Data {
 	npoint: number;
 	nepoch: number;
 	alphas: number[];
-	points?: utils.Point[];
-	colors?: utils.ColorRGBA[];
+	points?: Point[];
+	colors?: ColorRGBA[];
 }
 
 interface TeaserRendererOptions {
@@ -29,7 +31,7 @@ interface TeaserRendererOptions {
 	pointSize: number;
 }
 
-export class TeaserRenderer {
+export class TeaserRenderer implements Renderer {
 	framesPerTransition = 30;
 	framesPerEpoch = 60;
 	scaleTransitionProgress = 0;
@@ -40,6 +42,7 @@ export class TeaserRenderer {
 	shouldRender = true;
 	scaleFactor = 1.0;
 	s = 1.0;
+	mode: "point" = "point";
 
 	id: string;
 	epochs: number[];
@@ -64,6 +67,8 @@ export class TeaserRenderer {
 	isPlaying?: boolean;
 	animId?: number;
 	isScaleInTransition?: boolean;
+	isDragging?: boolean;
+	shouldPlayGrandTourPrev?: boolean;
 
 	colorBuffer?: WebGLBuffer;
 	colorLoc?: number;
@@ -79,6 +84,7 @@ export class TeaserRenderer {
 	modeLoc?: WebGLUniformLocation;
 	colorFactorLoc?: WebGLUniformLocation;
 	gt?: typeof GrandTour;
+	shouldCentralizeOrigin?: boolean;
 
 	constructor(
 		public gl: WebGLRenderingContext,

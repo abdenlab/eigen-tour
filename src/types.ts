@@ -1,0 +1,23 @@
+import type { ScaleContinuousNumeric } from "d3";
+
+export type Point = [number, number, number];
+
+export type Scale = ScaleContinuousNumeric<number, number, never>;
+
+export type ColorRGB = [number, number, number];
+
+export type ColorRGBA = [number, number, number, number];
+
+export interface Renderer {
+	gl: WebGLRenderingContext;
+	render(dt: number): void;
+	play(t?: number): void;
+	pause(): void;
+	initData(
+		buffer: ArrayBuffer,
+		url?: string,
+		i?: number,
+		length?: number,
+		onReadyCallback?: () => void,
+	): void;
+}
