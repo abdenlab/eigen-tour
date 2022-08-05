@@ -5,107 +5,152 @@ import * as math from "mathjs";
 
 import * as utils from "./utils";
 import { GrandTour } from "./GrandTour";
-import { TeaserOverlay } from "./TeaserOverlay";
+import { TeaserOverlay, TeaserOverlayOptions } from "./TeaserOverlay";
 
-interface TeaserRendererOptions {
-    epochs: number;
-    shouldAutoNextEpoch: boolean;
+interface Data {
+	labels: number[];
+	dataTensor: number[][][];
+	dmax: number;
+	ndim: number;
+	npoint: number;
+	nepoch: number;
+	alphas: number[];
+	points?: utils.Point[];
+	colors?: utils.ColorRGBA[];
 }
 
-export function TeaserRenderer(gl: WebGLRenderingContext, program: WebGLProgram, kwargs: TeaserRendererOptions) {
-	this.gl = gl;
-	this.program = program;
-	this.id = gl.canvas.id;
+interface TeaserRendererOptions {
+	epochs: number[];
+	epochIndex: number;
+	shouldAutoNextEpoch: boolean;
+	shouldPlayGrandTour: boolean;
+	isFullScreen: boolean;
+	overlayKwargs: TeaserOverlayOptions;
+	pointSize: number;
+}
 
-	this.framesPerTransition = 30;
-	this.framesPerEpoch = 60;
-	this.scaleTransitionProgress = 0;
+export class TeaserRenderer {
+	framesPerTransition = 30;
+	framesPerEpoch = 60;
+	scaleTransitionProgress = 0;
+	scaleTransitionDelta = 0;
+	colorFactor = utils.COLOR_FACTOR;
+	isFullScreen = false;
+	isDataReady = false;
+	shouldRender = true;
+	scaleFactor = 1.0;
+	s = 1.0;
 
-	Object.assign(this, kwargs);
+	id: string;
+	epochs: number[];
+	epochIndex: number;
+	shouldAutoNextEpoch: boolean;
+	shouldPlayGrandTour: boolean;
+	pointSize: number;
+	pointSize0: number;
+	overlay: typeof TeaserOverlay;
+	sx_span: d3.ScaleLinear<number, number, never>;
+	sy_span: d3.ScaleLinear<number, number, never>;
+	sz_span: d3.ScaleLinear<number, number, never>;
+	sx_center: d3.ScaleLinear<number, number, never>;
+	sy_center: d3.ScaleLinear<number, number, never>;
+	sz_center: d3.ScaleLinear<number, number, never>;
+	sx: d3.ScaleLinear<number, number, never>;
+	sy: d3.ScaleLinear<number, number, never>;
+	sz?: d3.ScaleLinear<number, number, never>;
 
-	this.dataObj = {};
-	this.mode = this.mode || "point"; // default point mode, or overwritten by kwargs
-	this.epochIndex = this.epochIndex || this.epochs[0];
-	this.colorFactor = utils.COLOR_FACTOR;
-	this.isFullScreen = false;
-	if (this.shouldPlayGrandTour === undefined) {
-		this.shouldPlayGrandTour = true;
+	dataObj?: Data;
+	shouldRecalculateColorRect?: boolean;
+	isPlaying?: boolean;
+	animId?: number;
+	isScaleInTransition?: boolean;
+
+	colorBuffer?: WebGLBuffer;
+	colorLoc?: number;
+	positionBuffer?: WebGLBuffer;
+	positionLoc?: number;
+	textureCoordBuffer?: WebGLBuffer;
+	textureCoordLoc?: number;
+	pointSizeLoc?: WebGLUniformLocation;
+	samplerLoc?: WebGLUniformLocation;
+	isDrawingAxisLoc?: WebGLUniformLocation;
+	canvasWidthLoc?: WebGLUniformLocation;
+	canvasHeightLoc?: WebGLUniformLocation;
+	modeLoc?: WebGLUniformLocation;
+	colorFactorLoc?: WebGLUniformLocation;
+	gt?: typeof GrandTour;
+
+	constructor(
+		public gl: WebGLRenderingContext,
+		public program: WebGLProgram,
+		opts: Partial<TeaserRendererOptions> = {},
+	) {
+		this.id = gl.canvas.id;
+		this.epochs = opts.epochs ?? [0];
+		this.epochIndex = opts.epochIndex ?? this.epochs[0];
+		this.shouldAutoNextEpoch = opts.shouldAutoNextEpoch ?? true;
+		this.shouldPlayGrandTour = opts.shouldPlayGrandTour ?? true;
+		this.pointSize = opts.pointSize ?? 6.0;
+		this.pointSize0 = this.pointSize;
+
+		// @ts-expect-error
+		this.overlay = new TeaserOverlay(this, opts.overlayKwargs);
+
+		this.sx_span = d3.scaleLinear();
+		this.sy_span = d3.scaleLinear();
+		this.sz_span = d3.scaleLinear();
+		this.sx_center = d3.scaleLinear();
+		this.sy_center = d3.scaleLinear();
+		this.sz_center = d3.scaleLinear();
+		this.sx = this.sx_center;
+		this.sy = this.sy_center;
 	}
-	if (!this.hasOwnProperty("shouldAutoNextEpoch")) {
-		this.shouldAutoNextEpoch = true;
-	}
-	this.pointSize0 = this.pointSize || 6.0;
 
-	this.overlay = new TeaserOverlay(this, this.overlayKwargs);
-
-	this.sx_span = d3.scaleLinear();
-	this.sy_span = d3.scaleLinear();
-	this.sz_span = d3.scaleLinear();
-	this.sx_center = d3.scaleLinear();
-	this.sy_center = d3.scaleLinear();
-	this.sz_center = d3.scaleLinear();
-	this.sx = this.sx_center;
-	this.sy = this.sy_center;
-	this.scaleFactor = 1.0;
-
-	this.setScaleFactor = function (s) {
+	setScaleFactor(s: number) {
 		this.scaleFactor = s;
-	};
+	}
 
-	this.initData = async function (buffer, url) {
+	async initData(buffer: ArrayBuffer, _url: string) {
 		let table = arrow.tableFromIPC(buffer);
-
 		let ndim = 5;
 		let nepoch = 1;
-		let dsample = 10;
 
 		let labels = [];
 		let arr = [];
-		let fields = d3.range(ndim).map((i) => "E" + i);
 
-		let mapping = Object.fromEntries(
+		let fields = d3.range(ndim).map((i) => "E" + i);
+		let labelMapping = Object.fromEntries(
 			["A0", "A1", "B0", "B1", "B2"].map((name, i) => [name, i]),
 		);
 
-		for (let row of utils.iterN(table, dsample)) {
-			labels.push(mapping[row["name"]]);
-			for (let field of fields) {
-				arr.push(row[field]);
-			}
+		for (let row of utils.iterN(table, 10)) {
+			labels.push(labelMapping[row.name]);
+			for (let field of fields) arr.push(row[field]);
 		}
 
 		let npoint = labels.length;
+		let dataTensor = utils.reshape(new Float32Array(arr), [
+			nepoch,
+			npoint,
+			ndim,
+		]);
 
-		arr = new Float32Array(arr);
-
-		this.dataObj.labels = labels;
 		this.shouldRecalculateColorRect = true;
-		this.dataObj.dataTensor = utils.reshape(arr, [nepoch, npoint, ndim]);
+		this.isDataReady = true;
 
-		if (
-			this.dataObj.dataTensor !== undefined &&
-			this.dataObj.labels !== undefined
-		) {
-			this.isDataReady = true;
-			let { dataTensor } = this.dataObj;
-			// this.dataObj.trajectoryLength = 5;
-			this.dataObj.dmax = 1.05 * math.max(
+		this.dataObj = {
+			labels,
+			dataTensor,
+			dmax: 1.05 * math.max(
 				math.abs(dataTensor[dataTensor.length - 1]),
-			);
-			this.dataObj.ndim = dataTensor[0][0].length;
-			this.dataObj.npoint = dataTensor[0].length;
-			this.dataObj.nepoch = dataTensor.length;
-			if (this.dataObj.alphas === undefined) {
-				this.dataObj.alphas = d3.range(
-					this.dataObj.npoint + 5 * this.dataObj.npoint,
-				).map((_) => 255);
-			} else {
-				this.overlay.restoreAlpha();
-			}
-			this.initGL(this.dataObj);
-		} else {
-			this.isDataReady = false;
-		}
+			),
+			ndim,
+			npoint,
+			nepoch,
+			alphas: d3.range(npoint + 5 * npoint).map(() => 255),
+		};
+
+		this.initGL(this.dataObj);
 
 		if (this.isDataReady && this.isPlaying === undefined) {
 			// renderer.isPlaying===undefined indicates the renderer on init
@@ -117,81 +162,63 @@ export function TeaserRenderer(gl: WebGLRenderingContext, program: WebGLProgram,
 
 		if (
 			this.isDataReady &&
-			(this.animId == null ||
-				this.shouldRender == false)
+			(this.animId == null || this.shouldRender == false)
 		) {
 			this.shouldRender = true;
 			// this.shouldRecalculateColorRect = true;
 			this.play();
 		}
-	};
+	}
 
-	this.setFullScreen = function (shouldSet) {
+	setFullScreen(shouldSet: boolean) {
 		this.isFullScreen = shouldSet;
 		let canvas = this.gl.canvas;
 		let canvasSelection = d3.select("#" + canvas.id);
 
-		let topBarHeight = 0 || d3.select("nav").node().clientHeight;
+		let topBarHeight = 0 || document.querySelector("nav")!.clientHeight;
 
-		d3.select(canvas.parentNode)
+		d3.select(canvas.parentNode as HTMLElement)
 			.classed("fullscreen", shouldSet);
 
-		if (shouldSet) {
-			canvasSelection
-				.classed("fullscreen", true);
-		} else {
-			canvasSelection
-				.classed("fullscreen", false);
-		}
+		canvasSelection.classed("fullscreen", shouldSet);
 
 		utils.resizeCanvas(canvas);
 		this.overlay.resize();
-		gl.uniform1f(this.canvasWidthLoc, canvas.clientWidth);
-		gl.uniform1f(this.canvasHeightLoc, canvas.clientHeight);
-		gl.viewport(0, 0, canvas.width, canvas.height);
-	};
+		this.gl.uniform1f(this.canvasWidthLoc!, canvas.clientWidth);
+		this.gl.uniform1f(this.canvasHeightLoc!, canvas.clientHeight);
+		this.gl.viewport(0, 0, canvas.width, canvas.height);
+	}
 
-	this.setMode = function (mode = "point") {
-		this.mode = mode;
-		if (mode === "point") {
-			gl.uniform1i(this.modeLoc, 0);
-		} else if (mode === "image") {
-			gl.uniform1i(this.modeLoc, 1);
-		}
-	};
-
-	this.initGL = function (dataObj) {
-		let gl = this.gl;
+	initGL(dataObj: Data) {
 		let program = this.program;
-		// init
-		utils.resizeCanvas(gl.canvas);
+		utils.resizeCanvas(this.gl.canvas);
 
-		gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-		gl.clearColor(...utils.CLEAR_COLOR, 1.0);
+		this.gl.viewport(0, 0, this.gl.canvas.width, this.gl.canvas.height);
+		this.gl.clearColor(...utils.CLEAR_COLOR, 1.0);
 
 		// gl.enable(gl.DEPTH_TEST);
-		gl.enable(gl.BLEND);
-		gl.disable(gl.DEPTH_TEST);
-		gl.blendFuncSeparate(
-			gl.SRC_ALPHA,
-			gl.ONE_MINUS_SRC_ALPHA,
-			gl.ONE,
-			gl.ONE_MINUS_SRC_ALPHA,
+		this.gl.enable(this.gl.BLEND);
+		this.gl.disable(this.gl.DEPTH_TEST);
+		this.gl.blendFuncSeparate(
+			this.gl.SRC_ALPHA,
+			this.gl.ONE_MINUS_SRC_ALPHA,
+			this.gl.ONE,
+			this.gl.ONE_MINUS_SRC_ALPHA,
 		);
 
-		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-		gl.useProgram(program);
+		this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
+		this.gl.useProgram(program);
 
-		this.colorBuffer = gl.createBuffer();
-		this.colorLoc = gl.getAttribLocation(program, "a_color");
+		this.colorBuffer = this.gl.createBuffer()!;
+		this.colorLoc = this.gl.getAttribLocation(program, "a_color");
 
-		this.positionBuffer = gl.createBuffer();
-		this.positionLoc = gl.getAttribLocation(program, "a_position");
+		this.positionBuffer = this.gl.createBuffer()!;
+		this.positionLoc = this.gl.getAttribLocation(program, "a_position");
 
-		this.textureCoordBuffer = gl.createBuffer();
-		this.textureCoordLoc = gl.getAttribLocation(program, "a_textureCoord");
+		this.textureCoordBuffer = this.gl.createBuffer()!;
+		this.textureCoordLoc = this.gl.getAttribLocation(program, "a_textureCoord");
 
-		this.pointSizeLoc = gl.getUniformLocation(program, "point_size");
+		this.pointSizeLoc = this.gl.getUniformLocation(program, "point_size")!;
 
 		let textureCoords = [];
 		for (let i = 0; i < dataObj.npoint; i++) {
@@ -202,50 +229,56 @@ export function TeaserRenderer(gl: WebGLRenderingContext, program: WebGLProgram,
 		}
 
 		if (this.textureCoordLoc !== -1) {
-			gl.bindBuffer(gl.ARRAY_BUFFER, this.textureCoordBuffer);
-			gl.bufferData(
-				gl.ARRAY_BUFFER,
+			this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.textureCoordBuffer);
+			this.gl.bufferData(
+				this.gl.ARRAY_BUFFER,
 				utils.flatten(textureCoords),
-				gl.STATIC_DRAW,
+				this.gl.STATIC_DRAW,
 			);
-			gl.vertexAttribPointer(this.textureCoordLoc, 2, gl.FLOAT, false, 0, 0);
-			gl.enableVertexAttribArray(this.textureCoordLoc);
+			this.gl.vertexAttribPointer(
+				this.textureCoordLoc,
+				2,
+				this.gl.FLOAT,
+				false,
+				0,
+				0,
+			);
+			this.gl.enableVertexAttribArray(this.textureCoordLoc);
 		}
 
 		let texture = utils.loadTexture(
-			gl,
+			this.gl,
 			utils.getTextureURL(this.overlay.getDataset()),
 		);
-		this.samplerLoc = gl.getUniformLocation(program, "uSampler");
-		gl.activeTexture(gl.TEXTURE0);
-		gl.bindTexture(gl.TEXTURE_2D, texture);
-		gl.uniform1i(this.samplerLoc, 0);
 
-		this.isDrawingAxisLoc = gl.getUniformLocation(program, "isDrawingAxis");
+		this.samplerLoc = this.gl.getUniformLocation(program, "uSampler")!;
+		this.gl.activeTexture(this.gl.TEXTURE0);
+		this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
+		this.gl.uniform1i(this.samplerLoc, 0);
 
-		this.canvasWidthLoc = gl.getUniformLocation(program, "canvasWidth");
-		this.canvasHeightLoc = gl.getUniformLocation(program, "canvasHeight");
-		gl.uniform1f(this.canvasWidthLoc, gl.canvas.clientWidth);
-		gl.uniform1f(this.canvasHeightLoc, gl.canvas.clientHeight);
+		this.isDrawingAxisLoc = this.gl.getUniformLocation(
+			program,
+			"isDrawingAxis",
+		)!;
 
-		this.modeLoc = gl.getUniformLocation(program, "mode");
-		this.setMode(this.mode);
+		this.canvasWidthLoc = this.gl.getUniformLocation(program, "canvasWidth")!;
+		this.canvasHeightLoc = this.gl.getUniformLocation(program, "canvasHeight")!;
+		this.gl.uniform1f(this.canvasWidthLoc, this.gl.canvas.clientWidth);
+		this.gl.uniform1f(this.canvasHeightLoc, this.gl.canvas.clientHeight);
 
-		this.colorFactorLoc = gl.getUniformLocation(program, "colorFactor");
+		this.modeLoc = this.gl.getUniformLocation(program, "mode")!;
+		this.gl.uniform1i(this.modeLoc, 0); // "point" mode
+
+		this.colorFactorLoc = this.gl.getUniformLocation(program, "colorFactor")!;
 		this.setColorFactor(this.colorFactor);
 
 		if (this.gt === undefined || this.gt.ndim != dataObj.ndim) {
 			let gt = new GrandTour(dataObj.ndim, this.init_matrix);
 			this.gt = gt;
 		}
-	};
+	}
 
-	// this.shouldCentralizeOrigin = this.shouldPlayGrandTour;
-
-	this.shouldRender = true;
-	this.s = 0;
-
-	this.play = (t = 0) => {
+	play(t = 0) {
 		let dt = 0;
 
 		if (
@@ -280,42 +313,42 @@ export function TeaserRenderer(gl: WebGLRenderingContext, program: WebGLProgram,
 		}
 
 		this.animId = requestAnimationFrame(this.play.bind(this));
-	};
+	}
 
-	this.setColorFactor = function (f) {
+	setColorFactor(f: number) {
 		this.colorFactor = f;
-		this.gl.uniform1f(this.colorFactorLoc, f);
-	};
+		this.gl.uniform1f(this.colorFactorLoc!, f);
+	}
 
-	this.setPointSize = function (s) {
+	setPointSize(s: number) {
 		this.pointSize = s;
-		gl.uniform1f(this.pointSizeLoc, s * window.devicePixelRatio);
-	};
+		this.gl.uniform1f(this.pointSizeLoc!, s * window.devicePixelRatio);
+	}
 
-	this.pause = function () {
+	pause() {
 		if (this.animId) {
 			cancelAnimationFrame(this.animId);
-			this.animId = null;
+			this.animId = undefined;
 		}
 		this.shouldRender = false;
 		console.log("paused");
-	};
+	}
 
-	this.setEpochIndex = (i) => {
+	setEpochIndex(i: number) {
 		this.epochIndex = i;
 		this.overlay.epochSlider.property("value", i);
-
+		if (!this.dataObj) return;
 		this.overlay.svg.select("#epochIndicator")
 			.text(`Epoch: ${this.epochIndex}/${(this.dataObj.nepoch - 1)}`);
-	};
+	}
 
-	this.playFromEpoch = function (epoch) {
+	playFromEpoch(epoch: number) {
 		this.shouldAutoNextEpoch = true;
 		this.setEpochIndex(epoch);
 		this.overlay.playButton.attr("class", "tooltip play-button fa fa-pause");
-	};
+	}
 
-	this.nextEpoch = function () {
+	nextEpoch() {
 		if (this.epochs.length == 1) {
 			return;
 		}
@@ -325,9 +358,9 @@ export function TeaserRenderer(gl: WebGLRenderingContext, program: WebGLProgram,
 		} else {
 			this.setEpochIndex(this.epochs[0]);
 		}
-	};
+	}
 
-	this.prevEpoch = function () {
+	prevEpoch() {
 		if (this.epochs.length == 1) {
 			return;
 		}
@@ -336,21 +369,16 @@ export function TeaserRenderer(gl: WebGLRenderingContext, program: WebGLProgram,
 		} else {
 			this.setEpochIndex(this.epochs.length - 1);
 		}
-	};
+	}
 
-	this.render = function (dt: number) {
-		if (this.dataObj.dataTensor === undefined) {
-			return;
-		}
+	render(dt: number) {
+		if (!this.dataObj) return;
 		let dataObj = this.dataObj;
 		let data = this.dataObj.dataTensor[this.epochIndex];
 		let labels = this.dataObj.labels;
-		let gl = this.gl;
-		let gt = this.gt;
-		let program = this.program;
 
 		data = data.concat(utils.createAxisPoints(dataObj.ndim));
-		let points = gt.project(data, dt);
+		let points = this.gt.project(data, dt);
 
 		if (
 			this.epochIndex > 0 &&
@@ -358,7 +386,7 @@ export function TeaserRenderer(gl: WebGLRenderingContext, program: WebGLProgram,
 		) {
 			let data0 = this.dataObj.dataTensor[this.epochIndex - 1];
 			data0 = data0.concat(utils.createAxisPoints(dataObj.ndim));
-			let points0 = gt.project(data0, dt / this.framesPerTransition);
+			let points0 = this.gt.project(data0, dt / this.framesPerTransition);
 			points = utils.linearInterpolate(
 				points0,
 				points,
@@ -368,7 +396,7 @@ export function TeaserRenderer(gl: WebGLRenderingContext, program: WebGLProgram,
 
 		utils.updateScale_center(
 			points,
-			gl.canvas,
+			this.gl.canvas,
 			this.sx_center,
 			this.sy_center,
 			this.sz_center,
@@ -379,7 +407,7 @@ export function TeaserRenderer(gl: WebGLRenderingContext, program: WebGLProgram,
 
 		utils.updateScale_span(
 			points,
-			gl.canvas,
+			this.gl.canvas,
 			this.sx_span,
 			this.sy_span,
 			this.sz_span,
@@ -390,9 +418,9 @@ export function TeaserRenderer(gl: WebGLRenderingContext, program: WebGLProgram,
 
 		let transition;
 		if (this.scaleTransitionDelta > 0) {
-			transition = (t) => Math.pow(t, 0.5);
+			transition = (t: number) => Math.pow(t, 0.5);
 		} else {
-			transition = (t) => 1 - Math.pow(1 - t, 0.5);
+			transition = (t: number) => 1 - Math.pow(1 - t, 0.5);
 		}
 		this.sx = utils.mixScale(
 			this.sx_center,
@@ -410,103 +438,76 @@ export function TeaserRenderer(gl: WebGLRenderingContext, program: WebGLProgram,
 
 		points = utils.data2canvas(points, this.sx, this.sy, this.sz);
 
-		if (this.mode == "image") {
-			points = utils.point2rect(
-				points,
-				dataObj.npoint,
-				14 * math.sqrt(this.scaleFactor),
-			);
-		}
-
 		dataObj.points = points;
 
-		let colors = labels.map((d) => utils.baseColors[d]);
 		let bgColors = labels.map((d) => utils.bgColors[d]);
+		let colors: utils.ColorRGBA[] = labels
+			.map((d) => utils.baseColors[d])
+			.concat(utils.createAxisColors(dataObj.ndim))
+			.map((c, i) => [c[0], c[1], c[2], dataObj.alphas[i]]);
 
-		colors = colors.concat(utils.createAxisColors(dataObj.ndim));
-		colors = colors.map((c, i) => [c[0], c[1], c[2], dataObj.alphas[i]]);
-
-		if (this.mode == "image") {
-			if (this.colorRect === undefined || this.shouldRecalculateColorRect) {
-				this.colorRect = utils.color2rect(colors, dataObj.npoint, dataObj.ndim);
-				this.bgColorRect = utils.color2rect(
-					bgColors,
-					dataObj.npoint,
-					dataObj.ndim,
-				);
-				this.shouldRecalculateColorRect = false;
-			}
-			colors = this.colorRect;
-			bgColors = this.bgColorRect;
-		}
 		dataObj.colors = colors;
 
-		let colorBuffer = this.colorBuffer;
-		let positionBuffer = this.positionBuffer;
-		let colorLoc = this.colorLoc;
-		let positionLoc = this.positionLoc;
+		this.gl.viewport(0, 0, this.gl.canvas.width, this.gl.canvas.height);
 
-		gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+		this.gl.clearColor(...utils.CLEAR_COLOR, 1.0);
+		this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
 
-		gl.clearColor(...utils.CLEAR_COLOR, 1.0);
-		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-		gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-		gl.bufferData(gl.ARRAY_BUFFER, utils.flatten(points), gl.STATIC_DRAW);
-		gl.vertexAttribPointer(positionLoc, 3, gl.FLOAT, false, 0, 0);
-		gl.enableVertexAttribArray(positionLoc);
-
-		gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
-		gl.bufferData(
-			gl.ARRAY_BUFFER,
-			new Uint8Array(utils.flatten(colors)),
-			gl.STATIC_DRAW,
+		this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.positionBuffer!);
+		this.gl.bufferData(
+			this.gl.ARRAY_BUFFER,
+			utils.flatten(points),
+			this.gl.STATIC_DRAW,
 		);
-		gl.vertexAttribPointer(colorLoc, 4, gl.UNSIGNED_BYTE, true, 0, 0);
-		gl.enableVertexAttribArray(colorLoc);
+		this.gl.vertexAttribPointer(
+			this.positionLoc!,
+			3,
+			this.gl.FLOAT,
+			false,
+			0,
+			0,
+		);
+		this.gl.enableVertexAttribArray(this.positionLoc!);
 
-		let c0 = bgColors.map((c, i) => [c[0], c[1], c[2], utils.pointAlpha]);
-		gl.bufferData(
-			gl.ARRAY_BUFFER,
+		this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.colorBuffer!);
+		this.gl.bufferData(
+			this.gl.ARRAY_BUFFER,
+			new Uint8Array(utils.flatten(colors)),
+			this.gl.STATIC_DRAW,
+		);
+		this.gl.vertexAttribPointer(
+			this.colorLoc!,
+			4,
+			this.gl.UNSIGNED_BYTE,
+			true,
+			0,
+			0,
+		);
+		this.gl.enableVertexAttribArray(this.colorLoc!);
+
+		let c0 = bgColors.map((c) => [c[0], c[1], c[2], utils.pointAlpha]);
+		this.gl.bufferData(
+			this.gl.ARRAY_BUFFER,
 			new Uint8Array(utils.flatten(c0)),
-			gl.STATIC_DRAW,
+			this.gl.STATIC_DRAW,
 		);
 
 		let c1;
-		if (this.mode === "point") {
-			gl.uniform1i(this.isDrawingAxisLoc, 0);
-			this.setPointSize(this.pointSize0 * Math.sqrt(this.scaleFactor));
+		this.gl.uniform1i(this.isDrawingAxisLoc!, 0);
+		this.setPointSize(this.pointSize0 * Math.sqrt(this.scaleFactor));
 
-			gl.drawArrays(gl.POINTS, 0, dataObj.npoint);
-			c1 = colors.map((c, i) => [c[0], c[1], c[2], dataObj.alphas[i]]);
-		} else {
-			gl.drawArrays(gl.TRIANGLES, 0, dataObj.npoint * 6);
-			c1 = colors.map((
-				c,
-				i,
-			) => [c[0], c[1], c[2], dataObj.alphas[Math.floor(i / 6)]]);
-		}
-		gl.bufferData(
-			gl.ARRAY_BUFFER,
+		this.gl.drawArrays(this.gl.POINTS, 0, dataObj.npoint);
+		c1 = colors.map((c, i) => [c[0], c[1], c[2], dataObj.alphas[i]]);
+		this.gl.bufferData(
+			this.gl.ARRAY_BUFFER,
 			new Uint8Array(utils.flatten(c1)),
-			gl.STATIC_DRAW,
+			this.gl.STATIC_DRAW,
 		);
 
-		if (this.mode === "point") {
-			gl.uniform1i(this.isDrawingAxisLoc, 0);
-			gl.drawArrays(gl.POINTS, 0, dataObj.npoint);
+		this.gl.uniform1i(this.isDrawingAxisLoc!, 0);
+		this.gl.drawArrays(this.gl.POINTS, 0, dataObj.npoint);
 
-			gl.uniform1i(this.isDrawingAxisLoc, 1);
-			gl.drawArrays(gl.LINES, dataObj.npoint, dataObj.ndim * 2);
-		} else {
-			gl.uniform1i(this.isDrawingAxisLoc, 0);
-			gl.drawArrays(gl.TRIANGLES, 0, dataObj.npoint * 6);
-
-			this.setMode("point");
-			gl.uniform1i(this.isDrawingAxisLoc, 1);
-			gl.drawArrays(gl.LINES, dataObj.npoint * 6, dataObj.ndim * 2);
-			this.setMode("image");
-		}
-		return;
-	};
+		this.gl.uniform1i(this.isDrawingAxisLoc!, 1);
+		this.gl.drawArrays(this.gl.LINES, dataObj.npoint, dataObj.ndim * 2);
+	}
 }

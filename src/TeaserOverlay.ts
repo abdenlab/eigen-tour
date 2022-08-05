@@ -3,13 +3,16 @@ import * as d3 from "d3";
 import * as math from "mathjs";
 import * as utils from "./utils";
 
-export function TeaserOverlay(renderer, kwargs) {
+export interface TeaserOverlayOptions {}
+
+export function TeaserOverlay(renderer: any, opts: Partial<TeaserOverlayOptions> = {}) {
 	let canvas = renderer.gl.canvas;
 	let width = canvas.clientWidth;
 	let height = canvas.clientHeight;
+
 	this.selectedClasses = new Set();
 	this.renderer = renderer;
-	Object.assign(this, kwargs);
+	Object.assign(this, opts);
 
 	let that = this;
 	let figure = d3.select("d-figure." + renderer.gl.canvas.id);

@@ -35,11 +35,13 @@ export const buttonColors = {
 	"off": "#f3f3f3",
 };
 
-export function clamp(min, max, v) {
+export function clamp(min: number, max: number, v: number) {
 	return Math.max(max, Math.min(min, v));
 }
 
-export function mixScale(s0, s1, progress, func) {
+type Scale = d3.ScaleContinuousNumeric<number, number, never>;
+
+export function mixScale(s0: Scale, s1: Scale, progress: number, func: (x: number) => number) {
 	let range0 = s0.range();
 	let range1 = s1.range();
 
@@ -54,7 +56,7 @@ export function mixScale(s0, s1, progress, func) {
 		.range(mix(range0, range1, progress));
 }
 
-export function data2canvas(points, sx, sy, sz) {
+export function data2canvas(points: Point[], sx: Scale, sy: Scale, sz: Scale) {
 	points = points.map((row) => {
 		return [sx(row[0]), sy(row[1]), sz(row[2])];
 	});
@@ -62,28 +64,19 @@ export function data2canvas(points, sx, sy, sz) {
 }
 
 export function updateScale_span(
-	points,
-	canvas,
-	sx,
-	sy,
-	sz,
+	points: Point[],
+	canvas: HTMLCanvasElement,
+	sx: d3.ScaleLinear<number, number, never>,
+	sy: d3.ScaleLinear<number, number, never>,
+	sz: d3.ScaleLinear<number, number, never>,
 	scaleFactor = 1.0,
-	marginRight = undefined,
-	marginBottom = undefined,
-	marginLeft = undefined,
-	marginTop = undefined,
+	marginRight?: number,
+	marginBottom = 65,
+	marginLeft = 32,
+	marginTop = 22,
 ) {
-	if (marginTop === undefined) {
-		marginTop = 22;
-	}
-	if (marginBottom === undefined) {
-		marginBottom = 65;
-	}
-	if (marginLeft === undefined) {
-		marginLeft = 32;
-	}
 	if (marginRight === undefined) {
-		marginRight = d3.max(Object.values(legendLeft)) + 15;
+		marginRight = d3.max(Object.values(legendLeft))! + 15;
 	}
 
 	let vmin = math.min(points, 0);
@@ -113,17 +106,20 @@ export function updateScale_span(
 		.range([0, 1]);
 }
 
+export type Point = [number, number, number];
+export type ColorRGBA = [number, number, number, number];
+
 export function updateScale_center(
-	points,
-	canvas,
-	sx,
-	sy,
-	sz,
+	points: Point[],
+	canvas: HTMLCanvasElement,
+	sx: d3.ScaleLinear<number, number, never>,
+	sy: d3.ScaleLinear<number, number, never>,
+	sz: d3.ScaleLinear<number, number, never>,
 	scaleFactor = 1.0,
-	marginRight = undefined,
-	marginBottom = undefined,
-	marginLeft = undefined,
-	marginTop = undefined,
+	marginRight?: number,
+	marginBottom?: number,
+	marginLeft?: number,
+	marginTop?: number,
 ) {
 	if (marginTop === undefined) {
 		marginTop = 22;
@@ -401,7 +397,7 @@ export function loadDataCsv(fns, renderer) {
 	});
 }
 
-export function resizeCanvas(canvas) {
+export function resizeCanvas(canvas: HTMLCanvasElement) {
 	let DPR = window.devicePixelRatio;
 
 	let displayWidth = DPR * canvas.clientWidth;
@@ -415,21 +411,21 @@ export function resizeCanvas(canvas) {
 		canvas.width = displayWidth;
 		canvas.height = displayHeight;
 	}
-	canvas.style.width = canvas.clientWidth;
-	canvas.style.height = canvas.clientHeight;
+	canvas.style.width = String(canvas.clientWidth);
+	canvas.style.height = String(canvas.clientHeight);
 }
 
 export const baseColorsHex = [...d3.schemeCategory10];
 baseColorsHex.push("#444444");
 baseColorsHex.push("#444444");
 
-function hexToRgb(hex: string) {
+function hexToRgb(hex: string): [number, number, number] {
 	let result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)!;
 	return [
 		parseInt(result[1], 16),
 		parseInt(result[2], 16),
 		parseInt(result[3], 16),
-	] as const;
+	];
 }
 
 export const baseColors = baseColorsHex.map(hexToRgb);

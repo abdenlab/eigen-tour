@@ -1,4 +1,3 @@
-// @ts-check
 import * as d3 from "d3";
 
 import { TeaserRenderer } from './TeaserRenderer';
@@ -17,9 +16,9 @@ d3.selectAll('.flex-item').style('background', d3.rgb(...c))
 
 teaserFigure.addEventListener("ready", function() {
   console.log('teaserFigure ready');
-  var epochs = d3.range(0, 1, 1);
-  var urls = utils.getChromTeaserDataURL();
-  var { gl, program } = utils.initGL("#teaser", fs, vs);
+  let epochs = d3.range(0, 1, 1);
+  let urls = utils.getChromTeaserDataURL();
+  let { gl, program } = utils.initGL("#teaser", fs, vs);
 
   teaser = new TeaserRenderer(gl, program, {
     epochs: epochs,
