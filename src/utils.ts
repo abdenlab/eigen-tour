@@ -61,7 +61,12 @@ export function mixScale(
 		.range(mix(range0, range1, progress));
 }
 
-export function data2canvas(points: number[][], sx: Scale, sy: Scale, sz: Scale) {
+export function data2canvas(
+	points: number[][],
+	sx: Scale,
+	sy: Scale,
+	sz: Scale,
+) {
 	points = points.map((row) => {
 		return [sx(row[0]), sy(row[1]), sz(row[2])];
 	});

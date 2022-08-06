@@ -103,7 +103,12 @@ export class GrandTour {
 		return res;
 	}
 
-	multiplyRotationMatrix(matrix: number[][], i: number, j: number, theta: number) {
+	multiplyRotationMatrix(
+		matrix: number[][],
+		i: number,
+		j: number,
+		theta: number,
+	) {
 		if (theta == 0) {
 			return matrix;
 		}
