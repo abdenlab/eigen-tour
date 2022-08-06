@@ -27,17 +27,6 @@ export class TeaserOverlay {
 	};
 	epochIndicator: d3.Selection<SVGTextElement, unknown, HTMLElement, any>;
 
-	controlOptionGroup: d3.Selection<HTMLDivElement, unknown, HTMLElement, any>;
-	zoomSliderDiv: d3.Selection<HTMLDivElement, unknown, HTMLElement, any>;
-	zoomLabel: d3.Selection<HTMLLabelElement, unknown, HTMLElement, any>;
-	zoomSlider: d3.Selection<HTMLInputElement, unknown, HTMLElement, any>;
-	datasetOption: d3.Selection<HTMLDivElement, unknown, HTMLElement, any>;
-	datasetLabel: d3.Selection<HTMLLabelElement, unknown, HTMLElement, any>;
-	datasetSelection: d3.Selection<HTMLSelectElement, unknown, HTMLElement, any>;
-
-	banner: d3.Selection<d3.BaseType, unknown, d3.BaseType, any>;
-	bannerText: d3.Selection<d3.BaseType, unknown, d3.BaseType, any>;
-
 	anchorRadius?: number;
 	annotate?: (renderer: TeaserRenderer) => void;
 
@@ -200,57 +189,10 @@ export class TeaserOverlay {
 			.attr("text-anchor", "middle")
 			.text(`Epoch: ${renderer.epochIndex}/99`);
 
-		this.controlOptionGroup = figure.insert("div", ":first-child");
-
-		this.zoomSliderDiv = this.controlOptionGroup
-			.insert("div", ":first-child")
-			.attr("class", "form-group zoomSliderDiv");
-		this.zoomLabel = this.zoomSliderDiv
-			.append("label")
-			.text("Zoom: ");
-		this.zoomSlider = this.zoomLabel
-			.append("input")
-			.attr("type", "range")
-			.attr("class", "slider zoomSlider")
-			.attr("min", 0.5)
-			.attr("max", 2.0)
-			.attr("value", this.renderer.scaleFactor)
-			.attr("step", 0.01)
-			.on("input", function () {
-				let value = +d3.select(this).property("value");
-				renderer.setScaleFactor(value);
-			});
-
-		this.datasetOption = this.controlOptionGroup
-			.insert("div", ":first-child")
-			.attr("class", "form-group datasetOption");
-		this.datasetLabel = this.datasetOption
-			.append("label")
-			.text("Dataset: ");
-		this.datasetSelection = this.datasetLabel
-			.append("select")
-			.on("change", function () {
-				let dataset = d3.select(this).property("value");
-				utils.setDataset(dataset);
-			});
-
-		this.datasetSelection.selectAll("option")
-			.data([
-				{ value: "mnist", text: "MNIST" },
-				{ value: "fashion-mnist", text: "fashion-MNIST" },
-				{ value: "cifar10", text: "CIFAR-10" },
-			])
-			.enter()
-			.append("option")
-			.text((d) => d.text)
-			.attr("value", (d) => d.value)
-			.property("selected", (d) => {
-				return d.value == this.getDataset();
-			});
-
 		//special treatment when showing only one peoch
 		if (renderer.epochs.length <= 1) {
 			this.epochSlider.style("display", "none");
+			this.epochIndicator.style("display", "none");
 		}
 	}
 

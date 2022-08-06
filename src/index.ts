@@ -18,7 +18,6 @@ teaser.overlay.fullScreenButton.style("top", "18px");
 teaser.overlay.epochSlider.style("top", "calc(100% - 28px)");
 teaser.overlay.playButton.style("top", " calc(100% - 34px)");
 teaser.overlay.grandtourButton.style("top", " calc(100% - 34px)");
-teaser.overlay.controlOptionGroup.remove();
 
 await utils.loadDataToRenderer([
 	new URL("../data/eigs.arrow", import.meta.url).href,
