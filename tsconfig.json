@@ -12,7 +12,6 @@
 		"strict": true,
 		"forceConsistentCasingInFileNames": true,
 		"skipLibCheck": true,
-		"allowSyntheticDefaultImports": true,
-		"noImplicitAny": true
+		"allowSyntheticDefaultImports": true
 	}
 }
