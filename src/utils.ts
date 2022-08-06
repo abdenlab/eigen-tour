@@ -2,7 +2,7 @@ import * as d3 from "d3";
 import * as math from "mathjs";
 import numeric from "numeric";
 
-import type { Scale, Point, ColorRGB, Renderer, ColorRGBA, } from "./types";
+import type { ColorRGB, ColorRGBA, Point, Renderer, Scale } from "./types";
 
 export const CLEAR_COLOR = [1, 1, 1] as const;
 export const CLEAR_COLOR_SMALL_MULTIPLE = [1, 1, 1] as const;
@@ -111,7 +111,6 @@ export function updateScale_span(
 		.range([0, 1]);
 }
 
-
 export function updateScale_center(
 	points: Point[],
 	canvas: HTMLCanvasElement,
@@ -211,7 +210,10 @@ export function scaleRows(matrix, isRowSelected, beta1, beta0) {
 	return res;
 }
 
-export function setDataset(datasetName: string, callback0?: (name: string) => void) {
+export function setDataset(
+	datasetName: string,
+	callback0?: (name: string) => void,
+) {
 	dataset = datasetName;
 	for (let callback of datasetListener) {
 		callback(datasetName);
@@ -278,34 +280,31 @@ export function getLabelNames(adversarial = false, dataset?: string) {
 	return res;
 }
 
-export function getChromTeaserDataURL() {
-	return [
-		new URL("../data/eigs.arrow", import.meta.url).href,
-	];
-}
-
 export function getTextureURL(dataset = getDataset(), datasetType = "test") {
 	return "data/softmax/" + dataset + "/input-" + datasetType + ".png";
 }
 
-export function initGL(canvasid: string, fs: string, vs: string) {
-	let canvas = document.getElementById(canvasid.slice(1)) as HTMLCanvasElement;
+export function initGL(canvas: HTMLCanvasElement, fs: string, vs: string) {
 	let gl = canvas.getContext("webgl", { premultipliedAlpha: false })!;
 	let program = initShaders(gl, fs, vs);
 	return { gl, program };
 }
 
-export function loadDataWithCallback(urls, callback) {
-	for (let i = 0; i < urls.length; i++) {
-		loadDataBin(urls[i], (buffer, url) => {
-			callback(buffer, url, i, urls.length);
-		});
-	}
-}
+export async function loadDataToRenderer(urls: string[], renderer: Renderer) {
+	let banner = renderer.overlay.figure.selectAll(".banner")
+		.data([0])
+		.enter()
+		.append("div")
+		.attr("class", "banner");
 
-function bannerAnimation(renderer) {
-	let banner = renderer.overlay.banner;
-	let bannerText = renderer.overlay.bannerText;
+	let bannerText = banner
+		.selectAll(".bannerText")
+		.data([0])
+		.enter()
+		.append("p")
+		.attr("class", "bannerText");
+
+	// render loop
 	function repeat() {
 		bannerText
 			.text("Loading")
@@ -321,39 +320,15 @@ function bannerAnimation(renderer) {
 			.on("end", repeat);
 	}
 	repeat();
-}
 
-function createBanner(renderer) {
-	let overlay = renderer.overlay;
-	if (overlay.figure) {
-		overlay.banner = overlay.figure.selectAll(".banner")
-			.data([0])
-			.enter()
-			.append("div")
-			.attr("class", "banner");
-		overlay.banner = overlay.figure.selectAll(".banner");
-		overlay.bannerText = overlay.banner
-			.selectAll(".bannerText")
-			.data([0])
-			.enter()
-			.append("p")
-			.attr("class", "bannerText");
-		overlay.bannerText = overlay.banner.selectAll(".bannerText");
-	}
-}
+	await Promise.all(
+		urls.map(async (url, i) => {
+			let buffer = await loadDataBin(url);
+			return renderer.initData(buffer, url, i, urls.length);
+		})
+	);
 
-export function loadDataToRenderer(urls: string, renderer: Renderer, onReadyCallback) {
-	if (renderer.overlay) {
-		createBanner(renderer);
-		bannerAnimation(renderer);
-	}
-
-	for (let i = 0; i < urls.length; i++) {
-		loadDataBin(urls[i], (buffer, url) => {
-			renderer.initData(buffer, url, i, urls.length, onReadyCallback);
-		});
-	}
-	return renderer;
+	banner.remove();
 }
 
 export function reshape(array, shape) {
@@ -379,31 +354,19 @@ export function reshape(array, shape) {
 	return res;
 }
 
-const noop = () => {};
-
-export function cacheAll(urls: string[]) {
-	for (let url of urls) {
-		loadDataBin(url, noop);
-	}
+export async function cacheAll(urls: string[]) {
+	await Promise.all( urls.map(loadDataBin));
 }
 
 const cache = new Map<string, ArrayBuffer>();
-export async function loadDataBin(url: string, callback: (buf: ArrayBuffer, url: string) => void) {
+export async function loadDataBin(url: string) {
 	let buffer = cache.get(url);
 	if (!buffer) {
 		let response = await fetch(url);
 		buffer = await response.arrayBuffer();
 		cache.set(url, buffer);
 	}
-	callback(buffer, url);
-}
-
-export function loadDataCsv(fns: string[], renderer: Renderer) {
-	let promises = fns.map((fn) => d3.text(fn));
-	Promise.all(promises).then((dataRaw) => {
-		renderer.initData(dataRaw);
-		renderer.play();
-	});
+	return buffer;
 }
 
 export function resizeCanvas(canvas: HTMLCanvasElement) {
@@ -510,7 +473,12 @@ export function orthogonalize(matrix, priorityRowIndex = 0) {
 	return matrix;
 }
 
-export function point2rect(points: Point[], npoint: number, sideLength: number, yUp = false) {
+export function point2rect(
+	points: Point[],
+	npoint: number,
+	sideLength: number,
+	yUp = false,
+) {
 	let res = [];
 
 	//points
@@ -543,7 +511,11 @@ export function point2rect(points: Point[], npoint: number, sideLength: number, 
 	return res;
 }
 
-export function color2rect<Color extends ColorRGB | ColorRGBA>(colors: Color[], npoint: number, ndim: number) {
+export function color2rect<Color extends ColorRGB | ColorRGBA>(
+	colors: Color[],
+	npoint: number,
+	ndim: number,
+) {
 	let pointColors = colors.slice(0, npoint)
 		.map((c) => [c, c, c, c, c, c])
 		.reduce((a, b) => a.concat(b), []);

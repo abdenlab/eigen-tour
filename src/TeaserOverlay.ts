@@ -18,7 +18,7 @@ export class TeaserOverlay {
 	svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any> & {
 		sc?: (color: number) => string;
 		anchors?: d3.Selection<
-			d3.BaseType,
+			SVGCircleElement,
 			[number, number],
 			SVGSVGElement,
 			unknown
@@ -26,13 +26,11 @@ export class TeaserOverlay {
 		drag?: d3.DragBehavior<Element, unknown, unknown>;
 	};
 	epochIndicator: d3.Selection<SVGTextElement, unknown, HTMLElement, any>;
+
 	controlOptionGroup: d3.Selection<HTMLDivElement, unknown, HTMLElement, any>;
 	zoomSliderDiv: d3.Selection<HTMLDivElement, unknown, HTMLElement, any>;
 	zoomLabel: d3.Selection<HTMLLabelElement, unknown, HTMLElement, any>;
 	zoomSlider: d3.Selection<HTMLInputElement, unknown, HTMLElement, any>;
-	modeOption: d3.Selection<HTMLDivElement, unknown, HTMLElement, any>;
-	modeLabel: d3.Selection<HTMLLabelElement, unknown, HTMLElement, any>;
-
 	datasetOption: d3.Selection<HTMLDivElement, unknown, HTMLElement, any>;
 	datasetLabel: d3.Selection<HTMLLabelElement, unknown, HTMLElement, any>;
 	datasetSelection: d3.Selection<HTMLSelectElement, unknown, HTMLElement, any>;
@@ -40,13 +38,18 @@ export class TeaserOverlay {
 	banner: d3.Selection<d3.BaseType, unknown, d3.BaseType, any>;
 	bannerText: d3.Selection<d3.BaseType, unknown, d3.BaseType, any>;
 
-	archorRadius?: number;
+	anchorRadius?: number;
 	annotate?: (renderer: TeaserRenderer) => void;
 
-	legendBox?:d3.Selection<SVGRectElement, number, SVGSVGElement, unknown>;
+	legendBox?: d3.Selection<SVGRectElement, number, SVGSVGElement, unknown>;
 	legendTitle?: d3.Selection<SVGTextElement, string, SVGSVGElement, unknown>;
 	legendTitleBg?: d3.Selection<SVGRectElement, number, SVGSVGElement, unknown>;
-	legendMark?: d3.Selection<d3.BaseType, unknown, SVGSVGElement, unknown>;
+	legendMark?: d3.Selection<
+		SVGCircleElement,
+		d3.RGBColor,
+		SVGSVGElement,
+		unknown
+	>;
 	legendText?: d3.Selection<SVGTextElement, string, SVGSVGElement, unknown>;
 
 	legend_sx?: Scale;
@@ -54,7 +57,7 @@ export class TeaserOverlay {
 
 	constructor(
 		public renderer: TeaserRenderer,
-		opts: Partial<TeaserOverlayOptions> = {},
+		_opts: Partial<TeaserOverlayOptions> = {},
 	) {
 		this.selectedClasses = new Set();
 		this.renderer = renderer;
@@ -218,30 +221,6 @@ export class TeaserOverlay {
 				renderer.setScaleFactor(value);
 			});
 
-		this.modeOption = this.controlOptionGroup
-			.insert("div", ":first-child")
-			.attr("class", "form-group modeOption");
-
-		this.modeLabel = this.modeOption
-			.append("label")
-			.text("Instances as: ");
-
-		let select = this.modeLabel.append("select")
-			.on("change", function () {
-				let mode = d3.select(this).property("value");
-				renderer.setMode(mode);
-				self.updateArchorRadius(mode);
-			});
-
-		select.selectAll("option")
-			.data(["point", "image"])
-			.enter()
-			.append("option")
-			.text((d) => d)
-			.attr("selected", (d) => {
-				return (d == renderer.mode) ? "selected" : null;
-			});
-
 		this.datasetOption = this.controlOptionGroup
 			.insert("div", ":first-child")
 			.attr("class", "form-group datasetOption");
@@ -269,21 +248,6 @@ export class TeaserOverlay {
 				return d.value == this.getDataset();
 			});
 
-		this.banner = figure.selectAll(".banner");
-
-		this.banner.selectAll(".banner")
-			.data([0])
-			.enter()
-			.append("div")
-			.attr("class", "banner");
-
-		this.bannerText = this.banner.selectAll(".bannerText");
-		this.bannerText
-			.data([0])
-			.enter()
-			.append("p")
-			.attr("class", "bannerText");
-
 		//special treatment when showing only one peoch
 		if (renderer.epochs.length <= 1) {
 			this.epochSlider.style("display", "none");
@@ -308,20 +272,20 @@ export class TeaserOverlay {
 
 	updateArchorRadius(mode: string) {
 		if (mode == "point") {
-			this.archorRadius = utils.clamp(
+			this.anchorRadius = utils.clamp(
 				7,
 				10,
 				Math.min(this.width, this.height) / 50,
 			);
 		} else {
-			this.archorRadius = utils.clamp(
+			this.anchorRadius = utils.clamp(
 				7,
 				15,
 				Math.min(this.width, this.height) / 30,
 			);
 		}
 		this.svg.selectAll(".anchor")
-			.attr("r", this.archorRadius);
+			.attr("r", this.anchorRadius);
 	}
 
 	resize() {
@@ -356,17 +320,19 @@ export class TeaserOverlay {
 
 		let r = (this.legend_sy(1) - this.legend_sy(0)) / 4;
 
-		this.legendMark!
-			.attr("cx", this.legend_sx(0.0) + 2.5 * r)
+		this.legendMark
+			?.attr("cx", this.legend_sx(0.001) + 2.5 * r)
 			.attr("cy", (_, i) => this.legend_sy!(i + 0.5))
 			.attr("r", r);
 
-		this.legendText!
-			.attr("x", +this.legend_sx(0.0) + 2.5 * r + 2.5 * r)
+		console.log(this.legendMark);
+
+		this.legendText
+			?.attr("x", +this.legend_sx(0.0) + 2.5 * r + 2.5 * r)
 			.attr("y", (_, i) => this.legend_sy!(i + 0.5));
 
-		this.legendBox!
-			.attr("x", this.legend_sx.range()[0])
+		this.legendBox
+			?.attr("x", this.legend_sx.range()[0])
 			.attr("y", this.legend_sy(-1))
 			.attr("width", this.legend_sx.range()[1] - this.legend_sx.range()[0])
 			.attr(
@@ -390,17 +356,12 @@ export class TeaserOverlay {
 				.attr("height", rectData.height + 2 * padding)
 				.attr("opacity", utils.legendTitle[this.getDataset()] ? 1 : 0);
 		}
-		if (this.banner) {
-			this.banner.remove();
-		}
 	}
 
 	init() {
 		let labels = utils.getLabelNames(false, this.getDataset());
-		this.initLegend(
-			utils.baseColors.slice(0, labels.length),
-			labels,
-		);
+		let colors = utils.baseColors.slice(0, labels.length);
+		this.initLegend(colors, labels);
 		this.resize();
 		this.initAxisHandle();
 		if (this.annotate !== undefined) {
@@ -417,24 +378,21 @@ export class TeaserOverlay {
 		let svg = this.svg;
 		let ndim = this.renderer.dataObj?.ndim || 10;
 		let renderer = this.renderer;
-		let coordinates =
-			(math.zeros(ndim, ndim) as unknown as { _data: [number, number][] })
-				._data;
 
-		let anchors = svg.selectAll(".anchor").data(coordinates);
+		let mat = math.zeros(ndim, ndim);
+		let coordinates = (mat as unknown as { _data: [number, number][] })._data;
 
-		anchors
+		let anchors = svg.selectAll(".anchor")
+			.data(coordinates)
 			.enter()
 			.append("circle")
 			.attr("class", "anchor")
 			.attr("opacity", 0.2);
 
 		anchors
-			.attr("cx", (d) => this.renderer.sx(d[0]))
-			.attr("cy", (d) => this.renderer.sy(d[1]))
-			.attr("r", this.archorRadius!)
-			// @ts-expect-error
-			.attr("fill", (_, i) => d3.rgb(...utils.baseColors[i]).darker())
+			.attr("cx", ([x, _]) => this.renderer.sx(x))
+			.attr("cy", ([_, y]) => this.renderer.sy(y))
+			.attr("r", this.anchorRadius!)
 			.attr("stroke", () => "white")
 			.style("cursor", "pointer");
 
@@ -452,7 +410,8 @@ export class TeaserOverlay {
 				let dy = renderer.sy.invert(event.dy) - renderer.sy.invert(0);
 				let matrix = renderer.gt.getMatrix();
 
-				const e = svg.anchors!.nodes();
+				const e = anchors.nodes();
+				// @ts-expect-error
 				const i = e.indexOf(this);
 
 				matrix[i][0] += dx;
@@ -481,17 +440,13 @@ export class TeaserOverlay {
 	}
 
 	redrawAxis() {
-		let svg = this.svg;
-		if (this.renderer.gt !== undefined) {
-			let handlePos = this.renderer.gt.project(
-				(math.identity(this.renderer.dataObj?.ndim ?? 10) as unknown as {
-					_data: number[][];
-				})._data,
-			);
-			svg.selectAll(".anchor")
-				.attr("cx", (_, i) => this.renderer.sx(handlePos[i][0]))
-				.attr("cy", (_, i) => this.renderer.sy(handlePos[i][1]));
-		}
+		if (this.renderer.gt === undefined) return;
+		let m = math.identity(this.renderer.dataObj?.ndim ?? 10);
+		let points = (m as unknown as { _data: number[][] })._data;
+		let handlePos = this.renderer.gt.project(points);
+		this.svg.selectAll(".anchor")
+			.attr("cx", (_, i) => this.renderer.sx(handlePos[i][0]))
+			.attr("cy", (_, i) => this.renderer.sy(handlePos[i][1]));
 	}
 
 	initLegendScale() {
@@ -523,14 +478,17 @@ export class TeaserOverlay {
 	initLegend(colors: ColorRGB[], labels: string[]) {
 		this.initLegendScale();
 
+		let clearColor = d3.rgb(
+			...utils.CLEAR_COLOR.map((d) => d * 255) as ColorRGB,
+		);
+
 		if (this.legendBox === undefined) {
 			this.legendBox = this.svg.selectAll(".legendBox")
 				.data([0])
 				.enter()
 				.append("rect")
 				.attr("class", "legendBox")
-				// @ts-expect-error
-				.attr("fill", d3.rgb(...utils.CLEAR_COLOR.map((d) => d * 255)))
+				.attr("fill", clearColor.formatRgb())
 				.attr("stroke", "#c1c1c1")
 				.attr("stroke-width", 1);
 		}
@@ -545,8 +503,7 @@ export class TeaserOverlay {
 				.enter()
 				.append("rect")
 				.attr("class", "legendTitleBg")
-				// @ts-expect-error
-				.attr("fill", d3.rgb(...utils.CLEAR_COLOR.map((d) => d * 255)));
+				.attr("fill", clearColor.formatRgb());
 
 			this.legendTitle = this.svg.selectAll(".legendTitle")
 				.data([legendTitleText])
@@ -559,13 +516,15 @@ export class TeaserOverlay {
 		}
 
 		let self = this;
-		this.legendMark = this.svg.selectAll(".legendMark");
-		this.legendMark
-			.data(colors)
+
+		this.legendMark = this.svg.selectAll(".legendMark")
+			.data(colors.map((c) => d3.rgb(...c)))
 			.enter()
 			.append("circle")
-			.attr("class", "legendMark")
-			.attr("fill", (c, i) => "rgb(" + c + ")")
+			.attr("class", "legendMark");
+
+		this.legendMark
+			.attr("fill", (color) => color.formatRgb())
 			.on("mouseover", function () {
 				const e = self.legendMark!.nodes();
 				const i = e.indexOf(this);
@@ -644,14 +603,12 @@ export class TeaserOverlay {
 				this.renderer.dataObj.alphas[i] = 0;
 			}
 		}
-		this.svg
-			.selectAll(".legendMark")
-			.attr("opacity", (_, j) => labelSet.has(j) ? 1.0 : 0.1);
+
+		this.legendMark?.attr("opacity", (_, j) => labelSet.has(j) ? 1.0 : 0.1);
 	}
 
 	restoreAlpha() {
 		if (!this.renderer.dataObj) return;
-
 		let labelClasses = new Set(this.selectedClasses);
 		if (labelClasses.size == 0) {
 			for (let i = 0; i < this.renderer.dataObj.npoint; i++) {
@@ -667,13 +624,12 @@ export class TeaserOverlay {
 			}
 		}
 
-		this.svg.selectAll(".legendMark")
-			.attr("opacity", (_, i) => {
-				if (labelClasses.size == 0) {
-					return 1.0;
-				} else {
-					return labelClasses.has(i) ? 1.0 : 0.1;
-				}
-			});
+		this.legendMark?.attr("opacity", (_, i) => {
+			if (labelClasses.size == 0) {
+				return 1.0;
+			} else {
+				return labelClasses.has(i) ? 1.0 : 0.1;
+			}
+		});
 	}
 }

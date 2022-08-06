@@ -51,7 +51,7 @@ export class TeaserRenderer implements Renderer {
 	shouldPlayGrandTour: boolean;
 	pointSize: number;
 	pointSize0: number;
-	overlay: typeof TeaserOverlay;
+	overlay: TeaserOverlay;
 	sx_span: d3.ScaleLinear<number, number, never>;
 	sy_span: d3.ScaleLinear<number, number, never>;
 	sz_span: d3.ScaleLinear<number, number, never>;
@@ -98,8 +98,6 @@ export class TeaserRenderer implements Renderer {
 		this.shouldPlayGrandTour = opts.shouldPlayGrandTour ?? true;
 		this.pointSize = opts.pointSize ?? 6.0;
 		this.pointSize0 = this.pointSize;
-
-		// @ts-expect-error
 		this.overlay = new TeaserOverlay(this, opts.overlayKwargs);
 
 		this.sx_span = d3.scaleLinear();
@@ -116,7 +114,7 @@ export class TeaserRenderer implements Renderer {
 		this.scaleFactor = s;
 	}
 
-	async initData(buffer: ArrayBuffer, _url: string) {
+	async initData(buffer: ArrayBuffer) {
 		let table = arrow.tableFromIPC(buffer);
 		let ndim = 5;
 		let nepoch = 1;

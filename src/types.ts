@@ -1,4 +1,4 @@
-import type { ScaleContinuousNumeric } from "d3";
+import type { ScaleContinuousNumeric, Selection, BaseType } from "d3";
 
 export type Point = [number, number, number];
 
@@ -18,6 +18,8 @@ export interface Renderer {
 		url?: string,
 		i?: number,
 		length?: number,
-		onReadyCallback?: () => void,
-	): void;
+	): Promise<void>;
+	overlay: {
+		figure: Selection<BaseType, unknown, BaseType, unknown>;
+	}
 }
