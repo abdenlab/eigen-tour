@@ -2,12 +2,14 @@ import * as d3 from "d3";
 import * as math from "mathjs";
 import numeric from "numeric";
 
+import type { ColorRGB, ColorRGBA, Point, Renderer, Scale } from "./types";
+
 export const CLEAR_COLOR = [1, 1, 1] as const;
 export const CLEAR_COLOR_SMALL_MULTIPLE = [1, 1, 1] as const;
 export const MIN_EPOCH = 0;
 export const MAX_EPOCH = 99;
 export const COLOR_FACTOR = 0.9;
-export const dataset = "mnist";
+export let dataset = "mnist";
 export const datasetListener = [];
 export const pointAlpha = 255 * 0.1;
 
@@ -35,11 +37,16 @@ export const buttonColors = {
 	"off": "#f3f3f3",
 };
 
-export function clamp(min, max, v) {
+export function clamp(min: number, max: number, v: number) {
 	return Math.max(max, Math.min(min, v));
 }
 
-export function mixScale(s0, s1, progress, func) {
+export function mixScale(
+	s0: Scale,
+	s1: Scale,
+	progress: number,
+	func: (x: number) => number,
+) {
 	let range0 = s0.range();
 	let range1 = s1.range();
 
@@ -54,7 +61,12 @@ export function mixScale(s0, s1, progress, func) {
 		.range(mix(range0, range1, progress));
 }
 
-export function data2canvas(points, sx, sy, sz) {
+export function data2canvas(
+	points: number[][],
+	sx: Scale,
+	sy: Scale,
+	sz: Scale,
+) {
 	points = points.map((row) => {
 		return [sx(row[0]), sy(row[1]), sz(row[2])];
 	});
@@ -62,28 +74,19 @@ export function data2canvas(points, sx, sy, sz) {
 }
 
 export function updateScale_span(
-	points,
-	canvas,
-	sx,
-	sy,
-	sz,
+	points: number[][],
+	canvas: HTMLCanvasElement,
+	sx: d3.ScaleLinear<number, number, never>,
+	sy: d3.ScaleLinear<number, number, never>,
+	sz: d3.ScaleLinear<number, number, never>,
 	scaleFactor = 1.0,
-	marginRight = undefined,
-	marginBottom = undefined,
-	marginLeft = undefined,
-	marginTop = undefined,
+	marginRight?: number,
+	marginBottom = 65,
+	marginLeft = 32,
+	marginTop = 22,
 ) {
-	if (marginTop === undefined) {
-		marginTop = 22;
-	}
-	if (marginBottom === undefined) {
-		marginBottom = 65;
-	}
-	if (marginLeft === undefined) {
-		marginLeft = 32;
-	}
 	if (marginRight === undefined) {
-		marginRight = d3.max(Object.values(legendLeft)) + 15;
+		marginRight = d3.max(Object.values(legendLeft))! + 15;
 	}
 
 	let vmin = math.min(points, 0);
@@ -114,16 +117,16 @@ export function updateScale_span(
 }
 
 export function updateScale_center(
-	points,
-	canvas,
-	sx,
-	sy,
-	sz,
+	points: number[][],
+	canvas: HTMLCanvasElement,
+	sx: Scale,
+	sy: Scale,
+	sz: Scale,
 	scaleFactor = 1.0,
-	marginRight = undefined,
-	marginBottom = undefined,
-	marginLeft = undefined,
-	marginTop = undefined,
+	marginRight?: number,
+	marginBottom?: number,
+	marginLeft?: number,
+	marginTop?: number,
 ) {
 	if (marginTop === undefined) {
 		marginTop = 22;
@@ -135,7 +138,7 @@ export function updateScale_center(
 		marginLeft = 32;
 	}
 	if (marginRight === undefined) {
-		marginRight = d3.max(Object.values(legendLeft)) + 15;
+		marginRight = d3.max(Object.values(legendLeft))! + 15;
 	}
 
 	let vmax = math.max(math.abs(points), 0);
@@ -166,21 +169,7 @@ export function updateScale_center(
 		.range([0, 1]);
 }
 
-export function toDataURL(url, callback) {
-	var xhr = new XMLHttpRequest();
-	xhr.onload = function () {
-		var reader = new FileReader();
-		reader.onloadend = function () {
-			callback(reader.result);
-		};
-		reader.readAsDataURL(xhr.response);
-	};
-	xhr.open("GET", url);
-	xhr.responseType = "blob";
-	xhr.send();
-}
-
-export function embed(matrix, canvas) {
+export function embed<T>(matrix: T[][], canvas: T[][]) {
 	for (let i = 0; i < matrix.length; i++) {
 		for (let j = 0; j < matrix[0].length; j++) {
 			canvas[i][j] = matrix[i][j];
@@ -189,124 +178,48 @@ export function embed(matrix, canvas) {
 	return canvas;
 }
 
-// huh: https://eslint.org/docs/rules/guard-for-in
-export function walkObject(obj, f) {
-	for (let key in obj) {
-		if (Object.prototype.hasOwnProperty.call(obj, key)) {
-			f(key);
-		}
-	}
-}
-
-export function scaleRows(matrix, isRowSelected, beta1, beta0) {
-	let selectedCount = numeric.sum(isRowSelected);
-	let res = matrix.map((row, i) => {
-		row = row.slice();
-		if (isRowSelected[i]) {
-			row = numeric.mul(row, beta1 / selectedCount);
-		} else {
-			row = numeric.mul(row, beta0 / (matrix.length - selectedCount));
-		}
-		return row;
-	});
-	return res;
-}
-
-export function setDataset(datasetName, callback0) {
-	this.dataset = datasetName;
-	for (let callback of datasetListener) {
-		callback(datasetName);
-	}
-	if (callback0 !== undefined) {
-		callback0();
-	}
-	// }
-}
-
 export function getDataset() {
 	return dataset;
 }
 
-export function addDatasetListener(callback) {
-	datasetListener.push(callback);
-}
-
-export function clearDatasetListener() {
-	for (let i = 0; i < datasetListener.length; i++) {
-		datasetListener.pop();
-	}
-}
-
-export function getLabelNames(adversarial = false, dataset = undefined) {
+export function getLabelNames(_adversarial = false, dataset?: string) {
 	if (dataset === undefined) {
 		dataset = getDataset();
 	}
 	let res;
 	if (dataset == "mnist") {
 		res = ["A0", "A1", "B0", "B1", "B2"];
-	} else if (dataset == "fashion-mnist") {
-		res = [
-			"T-shirt/top",
-			"Trouser",
-			"Pullover",
-			"Dress",
-			"Coat",
-			"Sandal",
-			"Shirt",
-			"Sneaker",
-			"Bag",
-			"Ankle boot",
-		];
-	} else if (dataset == "cifar10") {
-		res = [
-			"Airplane",
-			"Automobile",
-			"Bird",
-			"Cat",
-			"Deer",
-			"Dog",
-			"Frog",
-			"Horse",
-			"Ship",
-			"Truck",
-		];
 	} else {
 		throw new Error("Unrecognized dataset " + dataset);
 	}
-	if (adversarial) {
-		res.push("adversarial");
-	}
 	return res;
-}
-
-export function getChromTeaserDataURL() {
-	return [
-		new URL('../data/eigs.arrow', import.meta.url).href
-	]
 }
 
 export function getTextureURL(dataset = getDataset(), datasetType = "test") {
 	return "data/softmax/" + dataset + "/input-" + datasetType + ".png";
 }
 
-export function initGL(canvasid: string, fs: string, vs: string) {
-	let canvas = document.getElementById(canvasid.slice(1)) as HTMLCanvasElement;
+export function initGL(canvas: HTMLCanvasElement, fs: string, vs: string) {
 	let gl = canvas.getContext("webgl", { premultipliedAlpha: false })!;
 	let program = initShaders(gl, fs, vs);
 	return { gl, program };
 }
 
-export function loadDataWithCallback(urls, callback) {
-	for (let i = 0; i < urls.length; i++) {
-		loadDataBin(urls[i], (buffer, url) => {
-			callback(buffer, url, i, urls.length);
-		});
-	}
-}
+export async function loadDataToRenderer(urls: string[], renderer: Renderer) {
+	let banner = renderer.overlay.figure.selectAll(".banner")
+		.data([0])
+		.enter()
+		.append("div")
+		.attr("class", "banner");
 
-function bannerAnimation(renderer) {
-	let banner = renderer.overlay.banner;
-	let bannerText = renderer.overlay.bannerText;
+	let bannerText = banner
+		.selectAll(".bannerText")
+		.data([0])
+		.enter()
+		.append("p")
+		.attr("class", "bannerText");
+
+	// render loop
 	function repeat() {
 		bannerText
 			.text("Loading")
@@ -322,47 +235,33 @@ function bannerAnimation(renderer) {
 			.on("end", repeat);
 	}
 	repeat();
+
+	await Promise.all(
+		urls.map(async (url, i) => {
+			let buffer = await loadDataBin(url);
+			return renderer.initData(buffer, url, i, urls.length);
+		}),
+	);
+
+	banner.remove();
 }
 
-function createBanner(renderer) {
-	let overlay = renderer.overlay;
-	if (overlay.figure) {
-		overlay.banner = overlay.figure.selectAll(".banner")
-			.data([0])
-			.enter()
-			.append("div")
-			.attr("class", "banner");
-		overlay.banner = overlay.figure.selectAll(".banner");
-		overlay.bannerText = overlay.banner
-			.selectAll(".bannerText")
-			.data([0])
-			.enter()
-			.append("p")
-			.attr("class", "bannerText");
-		overlay.bannerText = overlay.banner.selectAll(".bannerText");
-	}
-}
+// TODO: fail when shape isn't tuple... Right now returns `number`.
+type NestedArray<T, Shape extends readonly number[]> = Shape extends
+	[infer _, ...infer Rest]
+	? Rest extends number[] ? NestedArray<T, Rest>[] : never
+	: T;
 
-export function loadDataToRenderer(urls, renderer, onReadyCallback) {
-	if (renderer.overlay) {
-		createBanner(renderer);
-		bannerAnimation(renderer);
-	}
-
-	for (let i = 0; i < urls.length; i++) {
-		loadDataBin(urls[i], (buffer, url) => {
-			renderer.initData(buffer, url, i, urls.length, onReadyCallback);
-		});
-	}
-	return renderer;
-}
-
-export function reshape(array, shape) {
+export function reshape<Item, Shape extends readonly number[]>(
+	array: ArrayLike<Item>,
+	shape: Shape,
+): NestedArray<Item, Shape> {
 	let res = [];
 	if (shape.length == 2) {
 		for (let row = 0; row < shape[0]; row++) {
 			res.push([]);
 			for (let col = 0; col < shape[1]; col++) {
+				// @ts-expect-error
 				res[res.length - 1].push(array[shape[1] * row + col]);
 			}
 		}
@@ -371,37 +270,32 @@ export function reshape(array, shape) {
 		for (let i = 0; i < shape[0]; i++) {
 			res.push(
 				reshape(
+					// @ts-expect-error
 					array.slice(i * blocksize, (i + 1) * blocksize),
 					shape.slice(1),
 				),
 			);
 		}
 	}
-	return res;
+	return res as any;
 }
 
-export function cacheAll(urls) {
-	for (let url of urls) loadDataBin(url, () => {});
+export async function cacheAll(urls: string[]) {
+	await Promise.all(urls.map(loadDataBin));
 }
 
-const cache = {};
-export async function loadDataBin(url, callback) {
-	if (!(url in cache)) {
+const cache = new Map<string, ArrayBuffer>();
+export async function loadDataBin(url: string) {
+	let buffer = cache.get(url);
+	if (!buffer) {
 		let response = await fetch(url);
-		cache[url] = await response.arrayBuffer();
+		buffer = await response.arrayBuffer();
+		cache.set(url, buffer);
 	}
-	callback(cache[url], url);
+	return buffer;
 }
 
-export function loadDataCsv(fns, renderer) {
-	let promises = fns.map((fn) => d3.text(fn));
-	Promise.all(promises).then(function (dataRaw) {
-		renderer.initData(dataRaw);
-		renderer.play();
-	});
-}
-
-export function resizeCanvas(canvas) {
+export function resizeCanvas(canvas: HTMLCanvasElement) {
 	let DPR = window.devicePixelRatio;
 
 	let displayWidth = DPR * canvas.clientWidth;
@@ -415,21 +309,21 @@ export function resizeCanvas(canvas) {
 		canvas.width = displayWidth;
 		canvas.height = displayHeight;
 	}
-	canvas.style.width = canvas.clientWidth;
-	canvas.style.height = canvas.clientHeight;
+	canvas.style.width = String(canvas.clientWidth);
+	canvas.style.height = String(canvas.clientHeight);
 }
 
 export const baseColorsHex = [...d3.schemeCategory10];
 baseColorsHex.push("#444444");
 baseColorsHex.push("#444444");
 
-function hexToRgb(hex: string) {
+function hexToRgb(hex: string): ColorRGB {
 	let result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)!;
 	return [
 		parseInt(result[1], 16),
 		parseInt(result[2], 16),
 		parseInt(result[3], 16),
-	] as const;
+	];
 }
 
 export const baseColors = baseColorsHex.map(hexToRgb);
@@ -439,62 +333,72 @@ export const bgColors = numeric.add(
 	0.95 * 255 * 0.4,
 );
 
-export function createAxisPoints(ndim) {
-	let res = math.identity(ndim)._data;
+export function createAxisPoints(ndim: number) {
+	let res = (math.identity(ndim) as math.Matrix).toArray();
 	for (let i = ndim - 1; i >= 0; i--) {
-		res.splice(i, 0, math.zeros(ndim)._data);
+		let zeros = (math.zeros(ndim) as math.Matrix).toArray() as number[];
+		res.splice(i, 0, zeros);
 	}
-	return res;
+	return res as number[][];
 }
 
-export function createAxisColors(ndim) {
+export function createAxisColors(ndim: number) {
 	return d3.range(ndim * 2).map(
 		(_, i) => baseColors[Math.floor(i / 2) % baseColors.length],
 	);
 }
 
-export function linearInterpolate(data1, data2, p) {
+export function linearInterpolate<T extends math.MathType>(
+	data1: T,
+	data2: T,
+	p: number,
+) {
 	// let res = math.zeros(data1.length, data1[0].length)._data;
 	// for (let i=0; i<data1.length; i++) {
 	//   for (let j=0; j<data1[0].length; j++) {
 	//     res[i][j] = data1[i][j]*(1-p) + data2[i][j]*(p);
 	//   }
 	// }
-	let a = math.multiply(data1, 1 - p);
-	let b = math.multiply(data2, p);
+	let a = math.multiply(data1, 1 - p) as T;
+	let b = math.multiply(data2, p) as T;
 	let res = math.add(a, b);
 	return res;
 }
 
-export function mix(data1, data2, p) {
+export function mix<T extends math.MathType>(data1: T, data2: T, p: number) {
 	return linearInterpolate(data1, data2, p);
 }
 
-export function orthogonalize(matrix, priorityRowIndex = 0) {
+export function orthogonalize<M extends number[][] | number[][][]>(
+	matrix: M,
+	priorityRowIndex = 0,
+): M {
 	// make row vectors in matrix pairwise orthogonal;
 
-	function proj(u, v) {
+	function proj(u: M[number], v: M[number]): M[number] {
 		// @ts-expect-error
 		return numeric.mul(numeric.dot(u, v) / numeric.dot(u, u), u);
 	}
 
-	function normalize(v, unitlength = 1) {
+	function normalize(v: M[number], unitlength = 1): M[number] {
 		if (numeric.norm2(v) <= 0) {
 			return v;
 		} else {
+			// @ts-expect-error
 			return numeric.div(v, numeric.norm2(v) / unitlength);
 		}
 	}
 
 	// Gram–Schmidt orthogonalization
 	let priorityRow = matrix[priorityRowIndex];
-	let firstRow = matrix[0];
+	let firstRow = matrix[0] as M[number];
 	matrix[0] = priorityRow;
 	matrix[priorityRowIndex] = firstRow;
 
 	matrix[0] = normalize(matrix[0]);
 	for (let i = 1; i < matrix.length; i++) {
 		for (let j = 0; j < i; j++) {
+			// @ts-expect-error
 			matrix[i] = numeric.sub(matrix[i], proj(matrix[j], matrix[i]));
 		}
 		matrix[i] = normalize(matrix[i]);
@@ -505,7 +409,12 @@ export function orthogonalize(matrix, priorityRowIndex = 0) {
 	return matrix;
 }
 
-export function point2rect(points, npoint, sideLength, yUp = false) {
+export function point2rect(
+	points: Point[],
+	npoint: number,
+	sideLength: number,
+	yUp = false,
+) {
 	let res = [];
 
 	//points
@@ -538,7 +447,11 @@ export function point2rect(points, npoint, sideLength, yUp = false) {
 	return res;
 }
 
-export function color2rect(colors, npoint, ndim) {
+export function color2rect<Color extends ColorRGB | ColorRGBA>(
+	colors: Color[],
+	npoint: number,
+	ndim: number,
+) {
 	let pointColors = colors.slice(0, npoint)
 		.map((c) => [c, c, c, c, c, c])
 		.reduce((a, b) => a.concat(b), []);
@@ -546,47 +459,8 @@ export function color2rect(colors, npoint, ndim) {
 	return pointColors.concat(axisColors);
 }
 
-export function getTextureCoord(
-	i,
-	nRow = 10,
-	nCol = 100,
-	isAdversarial = false,
-	epoch = 99,
-	nepoch = 100,
-) {
-	let nRow0 = nRow;
-	let npoint;
-	if (isAdversarial) {
-		npoint = nRow * nCol;
-		nRow = nRow + nepoch;
-	}
-
-	let ul, ur, ll, lr;
-	let numPerRow = nCol;
-	let numPerCol = nRow;
-	let dx = 1 / numPerRow;
-	let dy = 1 / numPerCol;
-	if (isAdversarial && i >= npoint - 89) { // hardcoded: last 89 are adversarial examples
-		ul = [
-			dx * ((i - (npoint - 89)) % numPerRow),
-			dy * Math.floor(nRow0 + epoch),
-		];
-	} else {
-		ul = [dx * (i % numPerRow), dy * Math.floor(i / numPerRow)];
-	}
-	ur = ul.slice();
-	ur[0] += dx;
-	ll = ul.slice();
-	ll[1] += dy;
-	lr = ul.slice();
-	lr[0] += dx;
-	lr[1] += dy;
-
-	return [ur, ul, ll, ur, ll, lr];
-}
-
-export function loadTexture(gl, url) {
-	function isPowerOf2(x) {
+export function loadTexture(gl: WebGLRenderingContext, url: string) {
+	function isPowerOf2(x: number) {
 		// @ts-expect-error
 		return x & (x - 1) == 0;
 	}
@@ -638,41 +512,6 @@ export function loadTexture(gl, url) {
 	return texture;
 }
 
-export function setTeaser(
-	renderer,
-	datasetname,
-	epochIndex,
-	classes,
-	shouldAutoNextEpoch = true,
-	timeout = 0,
-	callback = undefined,
-) {
-	setDataset(datasetname, () => {
-		renderer.setEpochIndex(epochIndex);
-		if (classes.length > 0) {
-			renderer.overlay.selectedClasses = new Set(classes);
-			renderer.overlay.onSelectLegend(classes);
-		} else {
-			renderer.overlay.selectedClasses = new Set();
-			renderer.overlay.restoreAlpha();
-		}
-
-		renderer.shouldAutoNextEpoch = shouldAutoNextEpoch;
-		d3.select(renderer.overlay.svg.node().parentElement)
-			.select(".play-button")
-			.attr("class", () => {
-				if (renderer.shouldAutoNextEpoch) {
-					return "tooltip play-button fa fa-pause";
-				} else {
-					return "tooltip play-button fa fa-play";
-				}
-			});
-		if (callback) {
-			callback();
-		}
-	});
-}
-
 export function* iterN<T>(it: Iterable<T>, n: number) {
 	let i = 0;
 	for (let x of it) {
@@ -681,7 +520,11 @@ export function* iterN<T>(it: Iterable<T>, n: number) {
 	}
 }
 
-function getShader(gl: WebGLRenderingContext, shaderScript: string, type: number) {
+function getShader(
+	gl: WebGLRenderingContext,
+	shaderScript: string,
+	type: number,
+) {
 	var shader = gl.createShader(type)!;
 	gl.shaderSource(shader, shaderScript);
 	gl.compileShader(shader);
@@ -702,12 +545,14 @@ export function initShaders(gl: WebGLRenderingContext, fs: string, vs: string) {
 	return program;
 }
 
-export function transpose(m) {
+type Matrix = number[][] & { matrix?: true };
+
+export function transpose(m: Matrix) {
 	if (!m.matrix) {
-		return "transpose(): trying to transpose a non-matrix";
+		throw new Error("transpose(): trying to transpose a non-matrix");
 	}
 
-	var result = [];
+	var result = [] as unknown as Matrix;
 	for (var i = 0; i < m.length; ++i) {
 		result.push([]);
 		for (var j = 0; j < m[i].length; ++j) {
@@ -720,7 +565,7 @@ export function transpose(m) {
 	return result;
 }
 
-export function flatten(v) {
+export function flatten(v: Matrix) {
 	if (v.matrix === true) {
 		v = transpose(v);
 	}
@@ -744,6 +589,7 @@ export function flatten(v) {
 		}
 	} else {
 		for (var i = 0; i < v.length; ++i) {
+			// @ts-expect-error
 			floats[i] = v[i];
 		}
 	}
