@@ -5,6 +5,7 @@
 		"dev": "vite",
 		"build": "vite build",
 		"preview": "vite preview",
+		"check": "tsc --noEmit",
 		"fmt": "deno fmt --ignore=dist,node_modules --options-use-tabs"
 	},
 	"author": "Trevor Manz",

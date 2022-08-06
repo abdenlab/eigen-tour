@@ -1,43 +1,57 @@
-// @ts-check
 import * as math from "mathjs";
 import numeric from "numeric";
 
 import * as utils from "./utils";
 
-export function GrandTour(ndim, init_matrix) {
-	this.ndim = ndim;
-	this.N = ndim * ndim;
+function initThetas(N: number) {
+	return Array.from({ length: N }, () => (Math.random() + 0.5) * Math.PI);
+}
 
-	this.STEPSIZE = 0.02;
+export class GrandTour {
+	STEPSIZE = 0.02;
+	matrix: number[][];
 
-	this.angles;
+	STEPSIZE_PREV?: number;
+	angles?: number[];
+	thetas: number[];
+	#ndim: number;
 
-	this.initThetas = function (N) {
-		this.thetas = new Array(N);
-		for (let i = 0; i < N; i++) {
-			this.thetas[i] = (Math.random() + 0.5) * Math.PI;
+	constructor(ndim: number, init_matrix?: number[][]) {
+		this.#ndim = ndim;
+		this.thetas = initThetas(this.N);
+		this.matrix = this.getMatrix(0);
+		if (init_matrix) {
+			this.setMatrix(init_matrix);
 		}
-	};
-	this.initThetas(this.N);
+	}
 
-	this.setNdim = function (newNdim) {
-		if (newNdim > this.ndim) {
+	get N() {
+		return this.ndim * this.ndim;
+	}
+
+	get ndim() {
+		return this.#ndim;
+	}
+
+	set ndim(newNdim: number) {
+		if (newNdim > this.#ndim) {
 			for (let i = this.N; i < newNdim * newNdim; i++) {
 				this.thetas[i] = (Math.random() - 0.5) * 2 * Math.PI;
 			}
-			this.matrix = utils.embed(this.matrix, math.identity(newNdim)._data);
+			this.matrix = utils.embed(
+				this.matrix,
+				(math.identity(newNdim) as math.Matrix).toArray() as number[][],
+			);
 		} else if (newNdim < this.ndim) {
 			this.matrix = this.matrix.slice(0, newNdim).map((row) =>
 				row.slice(0, newNdim)
 			);
 			this.matrix = utils.orthogonalize(this.matrix);
 		}
-		this.ndim = newNdim;
-		this.N = this.ndim * this.ndim;
-		return this.matrix;
-	};
+		this.#ndim = newNdim;
+	}
 
-	this.getMatrix = function (dt) {
+	getMatrix(dt?: number) {
 		if (dt !== undefined) {
 			if (this.angles === undefined) {
 				// torus method
@@ -45,7 +59,8 @@ export function GrandTour(ndim, init_matrix) {
 				//
 				// another implementation similar to torus method
 				this.angles = this.thetas;
-				this.matrix = math.identity(this.ndim)._data;
+				let mat = math.identity(this.ndim) as math.Matrix;
+				this.matrix = mat.toArray() as number[][];
 			} else {
 				// torus method
 				// this.angles = this.angles.map(
@@ -72,22 +87,23 @@ export function GrandTour(ndim, init_matrix) {
 			}
 		}
 		return this.matrix;
-	};
+	}
 
-	this.setMatrix = function (m) {
+	setMatrix(m: number[][]) {
 		this.matrix = numeric.clone(m);
-	};
+	}
 
-	this.getRotationMatrix = function (dim0, dim1, theta) {
-		let res = math.identity(this.ndim)._data;
+	getRotationMatrix(dim0: number, dim1: number, theta: number) {
+		let m = math.identity(this.ndim) as math.Matrix;
+		let res = m.toArray() as number[][];
 		res[dim0][dim0] = Math.cos(theta);
 		res[dim0][dim1] = Math.sin(theta);
 		res[dim1][dim0] = -Math.sin(theta);
 		res[dim1][dim1] = Math.cos(theta);
 		return res;
-	};
+	}
 
-	this.multiplyRotationMatrix = function (matrix, i, j, theta) {
+	multiplyRotationMatrix(matrix: number[][], i: number, j: number, theta: number) {
 		if (theta == 0) {
 			return matrix;
 		}
@@ -102,37 +118,27 @@ export function GrandTour(ndim, init_matrix) {
 			matrix[rowIndex][j] = columnI[rowIndex] * sin + columnJ[rowIndex] * cos;
 		}
 		return matrix;
-	};
+	}
 
-	this.get3dRotaionMatrix = function (t) {
+	get3dRotationMatrix(t: number) {
 		let theta = 0.0 * t;
 		let cos = Math.cos(theta);
 		let sin = Math.sin(theta);
-
 		return [
-			[cos, 0, sin],
-			[0, 1, 0],
-			[-sin, 0, cos],
-		];
-	};
+			[cos, 0, sin] as const,
+			[0, 1, 0] as const,
+			[-sin, 0, cos] as const,
+		] as const;
+	}
 
-	this.project = function (data, dt, view) {
+	project(data: number[][], dt?: number, view?: number[][]) {
 		let matrix = this.getMatrix(dt);
-
 		matrix = math.transpose(matrix);
 		matrix = matrix.slice(0, 3);
 		matrix = math.transpose(matrix);
 		if (view !== undefined) {
-			matrix = math.multiply(view, matrix);
+			matrix = math.multiply(view, matrix) as number[][];
 		}
-		let res = math.multiply(data, matrix.slice(0, data[0].length));
-
-		return res;
-	};
-
-	this.setNdim(this.ndim);
-	this.matrix = this.getMatrix(0);
-	if (init_matrix !== undefined) {
-		this.setMatrix(init_matrix);
+		return math.multiply(data, matrix.slice(0, data[0].length)) as number[][];
 	}
 }

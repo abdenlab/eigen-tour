@@ -61,7 +61,7 @@ export function mixScale(
 		.range(mix(range0, range1, progress));
 }
 
-export function data2canvas(points: Point[], sx: Scale, sy: Scale, sz: Scale) {
+export function data2canvas(points: number[][], sx: Scale, sy: Scale, sz: Scale) {
 	points = points.map((row) => {
 		return [sx(row[0]), sy(row[1]), sz(row[2])];
 	});
@@ -69,7 +69,7 @@ export function data2canvas(points: Point[], sx: Scale, sy: Scale, sz: Scale) {
 }
 
 export function updateScale_span(
-	points: Point[],
+	points: number[][],
 	canvas: HTMLCanvasElement,
 	sx: d3.ScaleLinear<number, number, never>,
 	sy: d3.ScaleLinear<number, number, never>,
@@ -112,7 +112,7 @@ export function updateScale_span(
 }
 
 export function updateScale_center(
-	points: Point[],
+	points: number[][],
 	canvas: HTMLCanvasElement,
 	sx: Scale,
 	sy: Scale,
@@ -164,21 +164,7 @@ export function updateScale_center(
 		.range([0, 1]);
 }
 
-export function toDataURL(url, callback) {
-	var xhr = new XMLHttpRequest();
-	xhr.onload = function () {
-		var reader = new FileReader();
-		reader.onloadend = function () {
-			callback(reader.result);
-		};
-		reader.readAsDataURL(xhr.response);
-	};
-	xhr.open("GET", url);
-	xhr.responseType = "blob";
-	xhr.send();
-}
-
-export function embed(matrix, canvas) {
+export function embed<T>(matrix: T[][], canvas: T[][]) {
 	for (let i = 0; i < matrix.length; i++) {
 		for (let j = 0; j < matrix[0].length; j++) {
 			canvas[i][j] = matrix[i][j];
@@ -187,95 +173,19 @@ export function embed(matrix, canvas) {
 	return canvas;
 }
 
-// huh: https://eslint.org/docs/rules/guard-for-in
-export function walkObject(obj, f) {
-	for (let key in obj) {
-		if (Object.prototype.hasOwnProperty.call(obj, key)) {
-			f(key);
-		}
-	}
-}
-
-export function scaleRows(matrix, isRowSelected, beta1, beta0) {
-	let selectedCount = numeric.sum(isRowSelected);
-	let res = matrix.map((row, i) => {
-		row = row.slice();
-		if (isRowSelected[i]) {
-			row = numeric.mul(row, beta1 / selectedCount);
-		} else {
-			row = numeric.mul(row, beta0 / (matrix.length - selectedCount));
-		}
-		return row;
-	});
-	return res;
-}
-
-export function setDataset(
-	datasetName: string,
-	callback0?: (name: string) => void,
-) {
-	dataset = datasetName;
-	for (let callback of datasetListener) {
-		callback(datasetName);
-	}
-	if (callback0 !== undefined) {
-		callback0();
-	}
-	// }
-}
-
 export function getDataset() {
 	return dataset;
 }
 
-export function addDatasetListener(callback) {
-	datasetListener.push(callback);
-}
-
-export function clearDatasetListener() {
-	for (let i = 0; i < datasetListener.length; i++) {
-		datasetListener.pop();
-	}
-}
-
-export function getLabelNames(adversarial = false, dataset?: string) {
+export function getLabelNames(_adversarial = false, dataset?: string) {
 	if (dataset === undefined) {
 		dataset = getDataset();
 	}
 	let res;
 	if (dataset == "mnist") {
 		res = ["A0", "A1", "B0", "B1", "B2"];
-	} else if (dataset == "fashion-mnist") {
-		res = [
-			"T-shirt/top",
-			"Trouser",
-			"Pullover",
-			"Dress",
-			"Coat",
-			"Sandal",
-			"Shirt",
-			"Sneaker",
-			"Bag",
-			"Ankle boot",
-		];
-	} else if (dataset == "cifar10") {
-		res = [
-			"Airplane",
-			"Automobile",
-			"Bird",
-			"Cat",
-			"Deer",
-			"Dog",
-			"Frog",
-			"Horse",
-			"Ship",
-			"Truck",
-		];
 	} else {
 		throw new Error("Unrecognized dataset " + dataset);
-	}
-	if (adversarial) {
-		res.push("adversarial");
 	}
 	return res;
 }
@@ -325,18 +235,28 @@ export async function loadDataToRenderer(urls: string[], renderer: Renderer) {
 		urls.map(async (url, i) => {
 			let buffer = await loadDataBin(url);
 			return renderer.initData(buffer, url, i, urls.length);
-		})
+		}),
 	);
 
 	banner.remove();
 }
 
-export function reshape(array, shape) {
+// TODO: fail when shape isn't tuple... Right now returns `number`.
+type NestedArray<T, Shape extends readonly number[]> = Shape extends
+	[infer _, ...infer Rest]
+	? Rest extends number[] ? NestedArray<T, Rest>[] : never
+	: T;
+
+export function reshape<Item, Shape extends readonly number[]>(
+	array: ArrayLike<Item>,
+	shape: Shape,
+): NestedArray<Item, Shape> {
 	let res = [];
 	if (shape.length == 2) {
 		for (let row = 0; row < shape[0]; row++) {
 			res.push([]);
 			for (let col = 0; col < shape[1]; col++) {
+				// @ts-expect-error
 				res[res.length - 1].push(array[shape[1] * row + col]);
 			}
 		}
@@ -345,17 +265,18 @@ export function reshape(array, shape) {
 		for (let i = 0; i < shape[0]; i++) {
 			res.push(
 				reshape(
+					// @ts-expect-error
 					array.slice(i * blocksize, (i + 1) * blocksize),
 					shape.slice(1),
 				),
 			);
 		}
 	}
-	return res;
+	return res as any;
 }
 
 export async function cacheAll(urls: string[]) {
-	await Promise.all( urls.map(loadDataBin));
+	await Promise.all(urls.map(loadDataBin));
 }
 
 const cache = new Map<string, ArrayBuffer>();
@@ -407,62 +328,72 @@ export const bgColors = numeric.add(
 	0.95 * 255 * 0.4,
 );
 
-export function createAxisPoints(ndim) {
-	let res = math.identity(ndim)._data;
+export function createAxisPoints(ndim: number) {
+	let res = (math.identity(ndim) as math.Matrix).toArray();
 	for (let i = ndim - 1; i >= 0; i--) {
-		res.splice(i, 0, math.zeros(ndim)._data);
+		let zeros = (math.zeros(ndim) as math.Matrix).toArray() as number[];
+		res.splice(i, 0, zeros);
 	}
-	return res;
+	return res as number[][];
 }
 
-export function createAxisColors(ndim) {
+export function createAxisColors(ndim: number) {
 	return d3.range(ndim * 2).map(
 		(_, i) => baseColors[Math.floor(i / 2) % baseColors.length],
 	);
 }
 
-export function linearInterpolate(data1, data2, p) {
+export function linearInterpolate<T extends math.MathType>(
+	data1: T,
+	data2: T,
+	p: number,
+) {
 	// let res = math.zeros(data1.length, data1[0].length)._data;
 	// for (let i=0; i<data1.length; i++) {
 	//   for (let j=0; j<data1[0].length; j++) {
 	//     res[i][j] = data1[i][j]*(1-p) + data2[i][j]*(p);
 	//   }
 	// }
-	let a = math.multiply(data1, 1 - p);
-	let b = math.multiply(data2, p);
+	let a = math.multiply(data1, 1 - p) as T;
+	let b = math.multiply(data2, p) as T;
 	let res = math.add(a, b);
 	return res;
 }
 
-export function mix(data1, data2, p) {
+export function mix<T extends math.MathType>(data1: T, data2: T, p: number) {
 	return linearInterpolate(data1, data2, p);
 }
 
-export function orthogonalize(matrix, priorityRowIndex = 0) {
+export function orthogonalize<M extends number[][] | number[][][]>(
+	matrix: M,
+	priorityRowIndex = 0,
+): M {
 	// make row vectors in matrix pairwise orthogonal;
 
-	function proj(u, v) {
+	function proj(u: M[number], v: M[number]): M[number] {
 		// @ts-expect-error
 		return numeric.mul(numeric.dot(u, v) / numeric.dot(u, u), u);
 	}
 
-	function normalize(v, unitlength = 1) {
+	function normalize(v: M[number], unitlength = 1): M[number] {
 		if (numeric.norm2(v) <= 0) {
 			return v;
 		} else {
+			// @ts-expect-error
 			return numeric.div(v, numeric.norm2(v) / unitlength);
 		}
 	}
 
 	// Gram–Schmidt orthogonalization
 	let priorityRow = matrix[priorityRowIndex];
-	let firstRow = matrix[0];
+	let firstRow = matrix[0] as M[number];
 	matrix[0] = priorityRow;
 	matrix[priorityRowIndex] = firstRow;
 
 	matrix[0] = normalize(matrix[0]);
 	for (let i = 1; i < matrix.length; i++) {
 		for (let j = 0; j < i; j++) {
+			// @ts-expect-error
 			matrix[i] = numeric.sub(matrix[i], proj(matrix[j], matrix[i]));
 		}
 		matrix[i] = normalize(matrix[i]);
@@ -523,45 +454,6 @@ export function color2rect<Color extends ColorRGB | ColorRGBA>(
 	return pointColors.concat(axisColors);
 }
 
-export function getTextureCoord(
-	i: number,
-	nRow = 10,
-	nCol = 100,
-	isAdversarial = false,
-	epoch = 99,
-	nepoch = 100,
-) {
-	let nRow0 = nRow;
-	let npoint;
-	if (isAdversarial) {
-		npoint = nRow * nCol;
-		nRow = nRow + nepoch;
-	}
-
-	let ul, ur, ll, lr;
-	let numPerRow = nCol;
-	let numPerCol = nRow;
-	let dx = 1 / numPerRow;
-	let dy = 1 / numPerCol;
-	if (isAdversarial && i >= npoint - 89) { // hardcoded: last 89 are adversarial examples
-		ul = [
-			dx * ((i - (npoint - 89)) % numPerRow),
-			dy * Math.floor(nRow0 + epoch),
-		];
-	} else {
-		ul = [dx * (i % numPerRow), dy * Math.floor(i / numPerRow)];
-	}
-	ur = ul.slice();
-	ur[0] += dx;
-	ll = ul.slice();
-	ll[1] += dy;
-	lr = ul.slice();
-	lr[0] += dx;
-	lr[1] += dy;
-
-	return [ur, ul, ll, ur, ll, lr];
-}
-
 export function loadTexture(gl: WebGLRenderingContext, url: string) {
 	function isPowerOf2(x: number) {
 		// @ts-expect-error
@@ -615,41 +507,6 @@ export function loadTexture(gl: WebGLRenderingContext, url: string) {
 	return texture;
 }
 
-export function setTeaser(
-	renderer: Renderer,
-	datasetname: string,
-	epochIndex: number,
-	classes: string[],
-	shouldAutoNextEpoch = true,
-	timeout = 0,
-	callback?: () => void,
-) {
-	setDataset(datasetname, () => {
-		renderer.setEpochIndex(epochIndex);
-		if (classes.length > 0) {
-			renderer.overlay.selectedClasses = new Set(classes);
-			renderer.overlay.onSelectLegend(classes);
-		} else {
-			renderer.overlay.selectedClasses = new Set();
-			renderer.overlay.restoreAlpha();
-		}
-
-		renderer.shouldAutoNextEpoch = shouldAutoNextEpoch;
-		d3.select(renderer.overlay.svg.node().parentElement)
-			.select(".play-button")
-			.attr("class", () => {
-				if (renderer.shouldAutoNextEpoch) {
-					return "tooltip play-button fa fa-pause";
-				} else {
-					return "tooltip play-button fa fa-play";
-				}
-			});
-		if (callback) {
-			callback();
-		}
-	});
-}
-
 export function* iterN<T>(it: Iterable<T>, n: number) {
 	let i = 0;
 	for (let x of it) {
@@ -683,7 +540,7 @@ export function initShaders(gl: WebGLRenderingContext, fs: string, vs: string) {
 	return program;
 }
 
-type Matrix = number[][] & { matrix: true };
+type Matrix = number[][] & { matrix?: true };
 
 export function transpose(m: Matrix) {
 	if (!m.matrix) {
@@ -727,6 +584,7 @@ export function flatten(v: Matrix) {
 		}
 	} else {
 		for (var i = 0; i < v.length; ++i) {
+			// @ts-expect-error
 			floats[i] = v[i];
 		}
 	}

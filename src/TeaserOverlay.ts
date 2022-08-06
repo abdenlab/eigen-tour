@@ -23,7 +23,7 @@ export class TeaserOverlay {
 			SVGSVGElement,
 			unknown
 		>;
-		drag?: d3.DragBehavior<Element, unknown, unknown>;
+		drag?: d3.DragBehavior<SVGElement, [number, number], unknown>;
 	};
 	epochIndicator: d3.Selection<SVGTextElement, unknown, HTMLElement, any>;
 
@@ -267,8 +267,6 @@ export class TeaserOverlay {
 			.attr("cy", (_, i) => this.legend_sy!(i + 0.5))
 			.attr("r", r);
 
-		console.log(this.legendMark);
-
 		this.legendText
 			?.attr("x", +this.legend_sx(0.0) + 2.5 * r + 2.5 * r)
 			.attr("y", (_, i) => this.legend_sy!(i + 0.5));
@@ -341,21 +339,18 @@ export class TeaserOverlay {
 		svg.anchors = anchors;
 
 		let self = this;
-		svg.drag = d3.drag()
+		let drag = d3.drag<SVGCircleElement, [number, number], unknown>()
 			.on("start", () => {
 				renderer.shouldPlayGrandTourPrev = renderer.shouldPlayGrandTour;
 				renderer.shouldPlayGrandTour = false;
 				renderer.isDragging = true;
 			})
 			.on("drag", function (event) {
+				if (!renderer.gt) return;
 				let dx = renderer.sx.invert(event.dx) - renderer.sx.invert(0);
 				let dy = renderer.sy.invert(event.dy) - renderer.sy.invert(0);
 				let matrix = renderer.gt.getMatrix();
-
-				const e = anchors.nodes();
-				// @ts-expect-error
-				const i = e.indexOf(this);
-
+				let i = anchors.nodes().indexOf(this);
 				matrix[i][0] += dx;
 				matrix[i][1] += dy;
 				matrix = utils.orthogonalize(matrix, i);
@@ -371,14 +366,16 @@ export class TeaserOverlay {
 
 		anchors
 			.on("mouseover", () => {
+				if (!renderer.gt) return;
 				renderer.gt.STEPSIZE_PREV = renderer.gt.STEPSIZE;
 				renderer.gt.STEPSIZE = renderer.gt.STEPSIZE * 0.2;
 			})
 			.on("mouseout", () => {
+				if (renderer.gt?.STEPSIZE_PREV === undefined) return;
 				renderer.gt.STEPSIZE = renderer.gt.STEPSIZE_PREV;
 				delete renderer.gt.STEPSIZE_PREV;
 			})
-			.call(svg.drag);
+			.call(drag);
 	}
 
 	redrawAxis() {

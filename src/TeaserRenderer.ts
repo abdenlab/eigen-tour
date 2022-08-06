@@ -1,4 +1,3 @@
-// @ts-check
 import * as arrow from "apache-arrow";
 import * as d3 from "d3";
 import * as math from "mathjs";
@@ -7,7 +6,7 @@ import * as utils from "./utils";
 import { GrandTour } from "./GrandTour";
 import { TeaserOverlay, TeaserOverlayOptions } from "./TeaserOverlay";
 
-import type { Point, ColorRGBA, Renderer } from "./types";
+import type { ColorRGBA, Renderer } from "./types";
 
 interface Data {
 	labels: number[];
@@ -17,7 +16,7 @@ interface Data {
 	npoint: number;
 	nepoch: number;
 	alphas: number[];
-	points?: Point[];
+	points?: number[][];
 	colors?: ColorRGBA[];
 }
 
@@ -74,16 +73,13 @@ export class TeaserRenderer implements Renderer {
 	colorLoc?: number;
 	positionBuffer?: WebGLBuffer;
 	positionLoc?: number;
-	textureCoordBuffer?: WebGLBuffer;
-	textureCoordLoc?: number;
 	pointSizeLoc?: WebGLUniformLocation;
-	samplerLoc?: WebGLUniformLocation;
 	isDrawingAxisLoc?: WebGLUniformLocation;
 	canvasWidthLoc?: WebGLUniformLocation;
 	canvasHeightLoc?: WebGLUniformLocation;
 	modeLoc?: WebGLUniformLocation;
 	colorFactorLoc?: WebGLUniformLocation;
-	gt?: typeof GrandTour;
+	gt?: GrandTour;
 	shouldCentralizeOrigin?: boolean;
 
 	constructor(
@@ -133,11 +129,8 @@ export class TeaserRenderer implements Renderer {
 		}
 
 		let npoint = labels.length;
-		let dataTensor = utils.reshape(new Float32Array(arr), [
-			nepoch,
-			npoint,
-			ndim,
-		]);
+		let shape: [number, number, number] = [nepoch, npoint, ndim];
+		let dataTensor = utils.reshape(new Float32Array(arr), shape);
 
 		this.shouldRecalculateColorRect = true;
 		this.isDataReady = true;
@@ -179,8 +172,6 @@ export class TeaserRenderer implements Renderer {
 		let canvas = this.gl.canvas;
 		let canvasSelection = d3.select("#" + canvas.id);
 
-		let topBarHeight = 0 || document.querySelector("nav")!.clientHeight;
-
 		d3.select(canvas.parentNode as HTMLElement)
 			.classed("fullscreen", shouldSet);
 
@@ -219,46 +210,7 @@ export class TeaserRenderer implements Renderer {
 		this.positionBuffer = this.gl.createBuffer()!;
 		this.positionLoc = this.gl.getAttribLocation(program, "a_position");
 
-		this.textureCoordBuffer = this.gl.createBuffer()!;
-		this.textureCoordLoc = this.gl.getAttribLocation(program, "a_textureCoord");
-
 		this.pointSizeLoc = this.gl.getUniformLocation(program, "point_size")!;
-
-		let textureCoords = [];
-		for (let i = 0; i < dataObj.npoint; i++) {
-			textureCoords.push(...utils.getTextureCoord(i));
-		}
-		for (let i = 0; i < dataObj.ndim * 2; i++) {
-			textureCoords.push([0, 0]);
-		}
-
-		if (this.textureCoordLoc !== -1) {
-			this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.textureCoordBuffer);
-			this.gl.bufferData(
-				this.gl.ARRAY_BUFFER,
-				utils.flatten(textureCoords),
-				this.gl.STATIC_DRAW,
-			);
-			this.gl.vertexAttribPointer(
-				this.textureCoordLoc,
-				2,
-				this.gl.FLOAT,
-				false,
-				0,
-				0,
-			);
-			this.gl.enableVertexAttribArray(this.textureCoordLoc);
-		}
-
-		let texture = utils.loadTexture(
-			this.gl,
-			utils.getTextureURL(this.overlay.getDataset()),
-		);
-
-		this.samplerLoc = this.gl.getUniformLocation(program, "uSampler")!;
-		this.gl.activeTexture(this.gl.TEXTURE0);
-		this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
-		this.gl.uniform1i(this.samplerLoc, 0);
 
 		this.isDrawingAxisLoc = this.gl.getUniformLocation(
 			program,
@@ -277,12 +229,11 @@ export class TeaserRenderer implements Renderer {
 		this.setColorFactor(this.colorFactor);
 
 		if (this.gt === undefined || this.gt.ndim != dataObj.ndim) {
-			let gt = new GrandTour(dataObj.ndim, this.init_matrix);
-			this.gt = gt;
+			this.gt = new GrandTour(dataObj.ndim);
 		}
 	}
 
-	play(t = 0) {
+	play(_t = 0) {
 		let dt = 0;
 
 		if (
@@ -376,7 +327,8 @@ export class TeaserRenderer implements Renderer {
 	}
 
 	render(dt: number) {
-		if (!this.dataObj) return;
+		if (!this.dataObj || !this.gt) return;
+
 		let dataObj = this.dataObj;
 		let data = this.dataObj.dataTensor[this.epochIndex];
 		let labels = this.dataObj.labels;
@@ -445,7 +397,7 @@ export class TeaserRenderer implements Renderer {
 		dataObj.points = points;
 
 		let bgColors = labels.map((d) => utils.bgColors[d]);
-		let colors: utils.ColorRGBA[] = labels
+		let colors: ColorRGBA[] = labels
 			.map((d) => utils.baseColors[d])
 			.concat(utils.createAxisColors(dataObj.ndim))
 			.map((c, i) => [c[0], c[1], c[2], dataObj.alphas[i]]);
