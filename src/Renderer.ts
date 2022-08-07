@@ -34,7 +34,7 @@ export class Renderer {
 	framesPerEpoch = 60;
 	scaleTransitionProgress = 0;
 	scaleTransitionDelta = 0;
-	colorFactor = utils.COLOR_FACTOR;
+	colorFactor = 0.9;
 	isFullScreen = false;
 	isDataReady = false;
 	shouldRender = true;
@@ -191,7 +191,6 @@ export class Renderer {
 		this.gl.viewport(0, 0, this.gl.canvas.width, this.gl.canvas.height);
 		this.gl.clearColor(...utils.CLEAR_COLOR, 1.0);
 
-		// gl.enable(gl.DEPTH_TEST);
 		this.gl.enable(this.gl.BLEND);
 		this.gl.disable(this.gl.DEPTH_TEST);
 		this.gl.blendFuncSeparate(

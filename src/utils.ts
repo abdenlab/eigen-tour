@@ -2,10 +2,9 @@ import * as d3 from "d3";
 import * as math from "mathjs";
 import numeric from "numeric";
 
-import type { ColorRGB, Renderer, Scale } from "./types";
+import type { ColorRGB, Scale } from "./types";
 
 export const CLEAR_COLOR = [1, 1, 1] as const;
-export const COLOR_FACTOR = 0.9;
 export let dataset = "mnist";
 export const pointAlpha = 255 * 0.1;
 
@@ -180,8 +179,8 @@ export function initGL(canvas: HTMLCanvasElement, fs: string, vs: string) {
 	return { gl, program };
 }
 
-export async function loadDataToRenderer(urls: string[], renderer: Renderer) {
-	let banner = renderer.overlay.figure.selectAll(".banner")
+export function createLoadingBanner(sel: d3.Selection<any, any, any, any>) {
+	let banner = sel.selectAll(".banner")
 		.data([0])
 		.enter()
 		.append("div")
@@ -211,14 +210,7 @@ export async function loadDataToRenderer(urls: string[], renderer: Renderer) {
 	}
 	repeat();
 
-	await Promise.all(
-		urls.map(async (url, i) => {
-			let buffer = await loadDataBin(url);
-			return renderer.initData(buffer, url, i, urls.length);
-		}),
-	);
-
-	banner.remove();
+	return () => { banner.remove() };
 }
 
 // TODO: fail when shape isn't tuple... Right now returns `number`.
@@ -253,21 +245,6 @@ export function reshape<Item, Shape extends readonly number[]>(
 		}
 	}
 	return res as any;
-}
-
-export async function cacheAll(urls: string[]) {
-	await Promise.all(urls.map(loadDataBin));
-}
-
-const cache = new Map<string, ArrayBuffer>();
-export async function loadDataBin(url: string) {
-	let buffer = cache.get(url);
-	if (!buffer) {
-		let response = await fetch(url);
-		buffer = await response.arrayBuffer();
-		cache.set(url, buffer);
-	}
-	return buffer;
 }
 
 export function resizeCanvas(canvas: HTMLCanvasElement) {
@@ -316,9 +293,8 @@ export function createAxisPoints(ndim: number) {
 }
 
 export function createAxisColors(ndim: number) {
-	return d3.range(ndim * 2).map(
-		(_, i) => baseColors[Math.floor(i / 2) % baseColors.length],
-	);
+	const gray: ColorRGB = [150, 150, 150];
+	return Array.from({ length: ndim * 2 }, () => gray);
 }
 
 export function linearInterpolate<T extends math.MathType>(

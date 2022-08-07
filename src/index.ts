@@ -6,19 +6,23 @@ import vs from "./shaders/teaser_vertex.glsl";
 async function main() {
 	let canvas = document.querySelector("canvas")!;
 	let { gl, program } = utils.initGL(canvas, fs, vs);
-	let teaser = new Renderer(gl, program);
+	let renderer = new Renderer(gl, program);
 
-	teaser.overlay.fullScreenButton.style("top", "18px");
-	teaser.overlay.epochSlider.style("top", "calc(100% - 28px)");
-	teaser.overlay.playButton.style("top", "calc(100% - 34px)");
-	teaser.overlay.grandtourButton.style("top", "calc(100% - 34px)");
+	renderer.overlay.fullScreenButton.style("top", "18px");
+	renderer.overlay.epochSlider.style("top", "calc(100% - 28px)");
+	renderer.overlay.playButton.style("top", "calc(100% - 34px)");
+	renderer.overlay.grandtourButton.style("top", "calc(100% - 34px)");
 
-	await utils.loadDataToRenderer([
-		new URL("../data/eigs.arrow", import.meta.url).href,
-	], teaser);
+	let removeBanner = utils.createLoadingBanner(renderer.overlay.figure);
+	let response = await fetch(
+		new URL("../data/eigs.arrow", import.meta.url)
+	);
+	await renderer.initData(await response.arrayBuffer());
+
+	removeBanner();
 
 	window.addEventListener("resize", () => {
-		teaser.setFullScreen(teaser.isFullScreen);
+		renderer.setFullScreen(renderer.isFullScreen);
 	});
 }
 

@@ -2,7 +2,7 @@ import * as d3 from "d3";
 import * as math from "mathjs";
 import * as utils from "./utils";
 
-import type { Renderer } from "./TeaserRenderer";
+import type { Renderer } from "./Renderer";
 import type { ColorRGB, Scale } from "./types";
 
 export interface OverlayOptions {}
@@ -309,7 +309,7 @@ export class Overlay {
 			.attr("cx", ([x, _]) => this.renderer.sx(x))
 			.attr("cy", ([_, y]) => this.renderer.sy(y))
 			.attr("r", this.anchorRadius!)
-			.attr("stroke", () => "white")
+			.attr("stroke", "white")
 			.style("cursor", "pointer");
 
 		let self = this;
@@ -335,7 +335,7 @@ export class Overlay {
 				renderer.isDragging = false;
 				renderer.shouldPlayGrandTour = renderer.shouldPlayGrandTourPrev ??
 					false;
-				renderer.shouldPlayGrandTourPrev = undefined;
+				delete renderer.shouldPlayGrandTourPrev;
 			});
 
 		this.anchors
@@ -406,8 +406,7 @@ export class Overlay {
 				.attr("stroke-width", 1);
 		}
 
-		let legendTitleText =
-			utils.legendTitle[this.getDataset() as keyof typeof utils.legendTitle];
+		let legendTitleText = utils.legendTitle[this.getDataset()];
 		if (
 			this.legendTitle === undefined && legendTitleText !== undefined
 		) {
@@ -517,19 +516,18 @@ export class Overlay {
 			}
 		}
 
-		this.legendMark?.attr("opacity", (_, j) => labelSet.has(j) ? 1.0 : 0.1);
+		this.legendMark?.attr("opacity", (_, i) => labelSet.has(i) ? 1.0 : 0.1);
 	}
 
 	restoreAlpha() {
 		if (!this.renderer.dataObj) return;
-		let labelClasses = new Set(this.selectedClasses);
-		if (labelClasses.size == 0) {
+		if (this.selectedClasses.size == 0) {
 			for (let i = 0; i < this.renderer.dataObj.npoint; i++) {
 				this.renderer.dataObj.alphas[i] = 255;
 			}
 		} else {
 			for (let i = 0; i < this.renderer.dataObj.npoint; i++) {
-				if (labelClasses.has(this.renderer.dataObj.labels[i])) {
+				if (this.selectedClasses.has(this.renderer.dataObj.labels[i])) {
 					this.renderer.dataObj.alphas[i] = 255;
 				} else {
 					this.renderer.dataObj.alphas[i] = 0;
@@ -538,11 +536,9 @@ export class Overlay {
 		}
 
 		this.legendMark?.attr("opacity", (_, i) => {
-			if (labelClasses.size == 0) {
-				return 1.0;
-			} else {
-				return labelClasses.has(i) ? 1.0 : 0.1;
-			}
+			return this.selectedClasses.size == 0 || this.selectedClasses.has(i)
+				? 1.0
+				: 0.1;
 		});
 	}
 }
