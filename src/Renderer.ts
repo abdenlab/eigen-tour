@@ -175,11 +175,20 @@ export class Renderer {
 		this.gl.viewport(0, 0, canvas.width, canvas.height);
 	}
 
+	get #clearColor() {
+		return this.gl.getParameter(this.gl.COLOR_CLEAR_VALUE) as [
+			number,
+			number,
+			number,
+			number,
+		];
+	}
+
 	initGL(dataObj: Data) {
 		utils.resizeCanvas(this.gl.canvas);
 
 		this.gl.viewport(0, 0, this.gl.canvas.width, this.gl.canvas.height);
-		this.gl.clearColor(...utils.CLEAR_COLOR, 1.0);
+		this.gl.clearColor(...this.#clearColor);
 
 		this.gl.enable(this.gl.BLEND);
 		this.gl.disable(this.gl.DEPTH_TEST);
@@ -352,7 +361,7 @@ export class Renderer {
 			);
 		}
 
-		utils.updateScale_center(
+		utils.updateScaleCenter(
 			points,
 			this.gl.canvas,
 			this.sx_center,
@@ -363,7 +372,7 @@ export class Renderer {
 			65,
 		);
 
-		utils.updateScale_span(
+		utils.updateScaleSpan(
 			points,
 			this.gl.canvas,
 			this.sx_span,
@@ -380,12 +389,14 @@ export class Renderer {
 		} else {
 			transition = (t: number) => 1 - Math.pow(1 - t, 0.5);
 		}
+
 		this.sx = utils.mixScale(
 			this.sx_center,
 			this.sx_span,
 			this.scaleTransitionProgress,
 			transition,
 		);
+
 		this.sy = utils.mixScale(
 			this.sy_center,
 			this.sy_span,
@@ -401,13 +412,13 @@ export class Renderer {
 		let colors: ColorRGBA[] = labels
 			.map((d) => utils.baseColors[d])
 			.concat(utils.createAxisColors(dataObj.ndim))
-			.map((c, i) => [c[0], c[1], c[2], dataObj.alphas[i]]);
+			.map((c, i) => [c.r, c.g, c.b, dataObj.alphas[i]]);
 
 		dataObj.colors = colors;
 
 		this.gl.viewport(0, 0, this.gl.canvas.width, this.gl.canvas.height);
 
-		this.gl.clearColor(...utils.CLEAR_COLOR, 1.0);
+		this.gl.clearColor(...this.#clearColor);
 		this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
 
 		this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.positionBuffer!);
@@ -433,7 +444,7 @@ export class Renderer {
 		this.gl.bufferData(
 			this.gl.ARRAY_BUFFER,
 			new Uint8Array(
-				bgColors.map((c) => [c[0], c[1], c[2], utils.pointAlpha]).flat(),
+				bgColors.map((c) => [c.r, c.g, c.b, utils.pointAlpha]).flat(),
 			),
 			this.gl.STATIC_DRAW,
 		);

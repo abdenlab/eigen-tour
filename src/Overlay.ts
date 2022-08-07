@@ -216,7 +216,7 @@ export class Overlay {
 	init() {
 		let labels = utils.getLabelNames(false, this.dataset);
 		let colors = utils.baseColors.slice(0, labels.length);
-		this.initLegend(colors, labels);
+		this.initLegend(utils.zip(labels, colors));
 		this.resize();
 		this.drawAxes();
 		if (this.annotate !== undefined) {
@@ -296,11 +296,9 @@ export class Overlay {
 			.attr("cy", (_, i) => this.renderer.sy(handlePos[i][1]));
 	}
 
-	initLegend(colors: ColorRGB[], labels: string[]) {
-		let legend = new Legend(this.svg, {
+	initLegend(data: [string, d3.Color][]) {
+		let legend = new Legend(data, this.svg, {
 			title: utils.legendTitle[this.dataset],
-			colors: colors,
-			labels: labels,
 			margin: {
 				left: utils.legendLeft[this.dataset],
 				right: utils.legendRight[this.dataset],
@@ -314,9 +312,6 @@ export class Overlay {
 				} else {
 					this.renderer.dataObj.alphas[i] = 0;
 				}
-			}
-			if (classes.size == this.renderer.dataObj.ndim) {
-				legend.clearSelected();
 			}
 		});
 		legend.on("mouseout", (classes) => {
