@@ -73,6 +73,8 @@ export class TeaserRenderer implements Renderer {
 	colorLoc?: number;
 	positionBuffer?: WebGLBuffer;
 	positionLoc?: number;
+	textureCoordBuffer?: WebGLBuffer;
+	textureCoordLoc?: number;
 	pointSizeLoc?: WebGLUniformLocation;
 	isDrawingAxisLoc?: WebGLUniformLocation;
 	canvasWidthLoc?: WebGLUniformLocation;
@@ -170,12 +172,11 @@ export class TeaserRenderer implements Renderer {
 	setFullScreen(shouldSet: boolean) {
 		this.isFullScreen = shouldSet;
 		let canvas = this.gl.canvas;
-		let canvasSelection = d3.select("#" + canvas.id);
 
 		d3.select(canvas.parentNode as HTMLElement)
 			.classed("fullscreen", shouldSet);
 
-		canvasSelection.classed("fullscreen", shouldSet);
+		d3.select(canvas).classed("fullscreen", shouldSet);
 
 		utils.resizeCanvas(canvas);
 		this.overlay.resize();

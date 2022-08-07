@@ -2,15 +2,11 @@ import * as d3 from "d3";
 import * as math from "mathjs";
 import numeric from "numeric";
 
-import type { ColorRGB, ColorRGBA, Point, Renderer, Scale } from "./types";
+import type { ColorRGB, Renderer, Scale } from "./types";
 
 export const CLEAR_COLOR = [1, 1, 1] as const;
-export const CLEAR_COLOR_SMALL_MULTIPLE = [1, 1, 1] as const;
-export const MIN_EPOCH = 0;
-export const MAX_EPOCH = 99;
 export const COLOR_FACTOR = 0.9;
 export let dataset = "mnist";
-export const datasetListener = [];
 export const pointAlpha = 255 * 0.1;
 
 //legend of teaser, grand tour plots
@@ -18,24 +14,7 @@ export const legendLeft = { "mnist": 70 };
 
 export const legendRight = { "mnist": 2 };
 
-//legend of small multiple
-export const smLegendLeft = { "mnist": 45 };
-
-export const smLegendRight = { "mnist": 2 };
-
 export const legendTitle = { "mnist": "Name" };
-
-//for softmax grandtour
-export const buttonOffsetY = {
-	"default": 245,
-	"adversarial": 265,
-};
-
-//for small multiples & softmax grandtour
-export const buttonColors = {
-	"on": "#B3C5F4",
-	"off": "#f3f3f3",
-};
 
 export function clamp(min: number, max: number, v: number) {
 	return Math.max(max, Math.min(min, v));
@@ -57,8 +36,8 @@ export function mixScale(
 	progress = func(progress);
 
 	return d3.scaleLinear()
-		.domain(mix(domain0, domain1, progress))
-		.range(mix(range0, range1, progress));
+		.domain(linearInterpolate(domain0, domain1, progress))
+		.range(linearInterpolate(range0, range1, progress));
 }
 
 export function data2canvas(
@@ -195,13 +174,9 @@ export function getLabelNames(_adversarial = false, dataset?: string) {
 	return res;
 }
 
-export function getTextureURL(dataset = getDataset(), datasetType = "test") {
-	return "data/softmax/" + dataset + "/input-" + datasetType + ".png";
-}
-
 export function initGL(canvas: HTMLCanvasElement, fs: string, vs: string) {
 	let gl = canvas.getContext("webgl", { premultipliedAlpha: false })!;
-	let program = initShaders(gl, fs, vs);
+	let program = createProgram(gl, fs, vs);
 	return { gl, program };
 }
 
@@ -314,8 +289,6 @@ export function resizeCanvas(canvas: HTMLCanvasElement) {
 }
 
 export const baseColorsHex = [...d3.schemeCategory10];
-baseColorsHex.push("#444444");
-baseColorsHex.push("#444444");
 
 function hexToRgb(hex: string): ColorRGB {
 	let result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)!;
@@ -353,20 +326,10 @@ export function linearInterpolate<T extends math.MathType>(
 	data2: T,
 	p: number,
 ) {
-	// let res = math.zeros(data1.length, data1[0].length)._data;
-	// for (let i=0; i<data1.length; i++) {
-	//   for (let j=0; j<data1[0].length; j++) {
-	//     res[i][j] = data1[i][j]*(1-p) + data2[i][j]*(p);
-	//   }
-	// }
 	let a = math.multiply(data1, 1 - p) as T;
 	let b = math.multiply(data2, p) as T;
 	let res = math.add(a, b);
 	return res;
-}
-
-export function mix<T extends math.MathType>(data1: T, data2: T, p: number) {
-	return linearInterpolate(data1, data2, p);
 }
 
 export function orthogonalize<M extends number[][] | number[][][]>(
@@ -409,109 +372,6 @@ export function orthogonalize<M extends number[][] | number[][][]>(
 	return matrix;
 }
 
-export function point2rect(
-	points: Point[],
-	npoint: number,
-	sideLength: number,
-	yUp = false,
-) {
-	let res = [];
-
-	//points
-	for (let i = 0; i < npoint; i++) {
-		let x = points[i][0];
-		let y = points[i][1];
-		let z = points[i][2];
-
-		let ul, ur, ll, lr;
-
-		if (yUp) {
-			ul = [x - sideLength / 2, y + sideLength / 2, z]; // upper left
-			ur = [x + sideLength / 2, y + sideLength / 2, z]; // upper right
-			ll = [x - sideLength / 2, y - sideLength / 2, z]; // lower left
-			lr = [x + sideLength / 2, y - sideLength / 2, z]; // lower right
-		} else {
-			// points in canvas coordinate (so downward means y-coord increase)
-			ul = [x - sideLength / 2, y - sideLength / 2, z]; // upper left
-			ur = [x + sideLength / 2, y - sideLength / 2, z]; // upper right
-			ll = [x - sideLength / 2, y + sideLength / 2, z]; // lower left
-			lr = [x + sideLength / 2, y + sideLength / 2, z]; // lower right
-		}
-		res.push(ur, ul, ll, ur, ll, lr);
-	}
-
-	//axis
-	for (let i = npoint; i < points.length; i++) {
-		res.push(points[i]);
-	}
-	return res;
-}
-
-export function color2rect<Color extends ColorRGB | ColorRGBA>(
-	colors: Color[],
-	npoint: number,
-	ndim: number,
-) {
-	let pointColors = colors.slice(0, npoint)
-		.map((c) => [c, c, c, c, c, c])
-		.reduce((a, b) => a.concat(b), []);
-	let axisColors = colors.slice(npoint, npoint + 2 * ndim);
-	return pointColors.concat(axisColors);
-}
-
-export function loadTexture(gl: WebGLRenderingContext, url: string) {
-	function isPowerOf2(x: number) {
-		// @ts-expect-error
-		return x & (x - 1) == 0;
-	}
-
-	let texture = gl.createTexture();
-	gl.bindTexture(gl.TEXTURE_2D, texture);
-
-	let level = 0;
-	let internalFormat = gl.RGBA;
-	let width = 1;
-	let height = 1;
-	let border = 0;
-	let srcFormat = gl.RGBA;
-	let srcType = gl.UNSIGNED_BYTE;
-	let pixel = new Uint8Array([0, 0, 255, 255]);
-
-	gl.texImage2D(
-		gl.TEXTURE_2D,
-		level,
-		internalFormat,
-		width,
-		height,
-		border,
-		srcFormat,
-		srcType,
-		pixel,
-	);
-
-	let image = new Image();
-	image.onload = function () {
-		gl.bindTexture(gl.TEXTURE_2D, texture);
-		gl.texImage2D(
-			gl.TEXTURE_2D,
-			level,
-			internalFormat,
-			srcFormat,
-			srcType,
-			image,
-		);
-		if (isPowerOf2(image.width) && isPowerOf2(image.height)) {
-			gl.generateMipmap(gl.TEXTURE_2D);
-		} else {
-			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-		}
-	};
-	image.src = url;
-	return texture;
-}
-
 export function* iterN<T>(it: Iterable<T>, n: number) {
 	let i = 0;
 	for (let x of it) {
@@ -520,12 +380,12 @@ export function* iterN<T>(it: Iterable<T>, n: number) {
 	}
 }
 
-function getShader(
+function compileShader(
 	gl: WebGLRenderingContext,
 	shaderScript: string,
 	type: number,
 ) {
-	var shader = gl.createShader(type)!;
+	let shader = gl.createShader(type)!;
 	gl.shaderSource(shader, shaderScript);
 	gl.compileShader(shader);
 	if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
@@ -535,10 +395,14 @@ function getShader(
 	return shader;
 }
 
-export function initShaders(gl: WebGLRenderingContext, fs: string, vs: string) {
-	var fragmentShader = getShader(gl, fs, gl.FRAGMENT_SHADER);
-	var vertexShader = getShader(gl, vs, gl.VERTEX_SHADER);
-	var program = gl.createProgram()!;
+export function createProgram(
+	gl: WebGLRenderingContext,
+	fs: string,
+	vs: string,
+) {
+	let fragmentShader = compileShader(gl, fs, gl.FRAGMENT_SHADER);
+	let vertexShader = compileShader(gl, vs, gl.VERTEX_SHADER);
+	let program = gl.createProgram()!;
 	gl.attachShader(program, vertexShader);
 	gl.attachShader(program, fragmentShader);
 	gl.linkProgram(program);

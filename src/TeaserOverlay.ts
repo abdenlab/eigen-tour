@@ -10,12 +10,13 @@ export interface TeaserOverlayOptions {}
 
 export class TeaserOverlay {
 	selectedClasses: Set<number>;
-	figure: d3.Selection<d3.BaseType, unknown, HTMLElement, any>;
-	epochSlider: d3.Selection<HTMLInputElement, unknown, HTMLElement, any>;
-	playButton: d3.Selection<HTMLElement, unknown, HTMLElement, any>;
-	fullScreenButton: d3.Selection<HTMLElement, unknown, HTMLElement, any>;
-	grandtourButton: d3.Selection<HTMLElement, unknown, HTMLElement, any>;
-	svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any> & {
+	figure: d3.Selection<HTMLElement, unknown, null, undefined>;
+	epochSlider: d3.Selection<HTMLInputElement, unknown, null, undefined>;
+	playButton: d3.Selection<HTMLElement, unknown, null, undefined>;
+	fullScreenButton: d3.Selection<HTMLElement, unknown, null, undefined>;
+	grandtourButton: d3.Selection<HTMLElement, unknown, null, undefined>;
+	epochIndicator: d3.Selection<SVGTextElement, unknown, null, undefined>;
+	svg: d3.Selection<SVGSVGElement, unknown, null, undefined> & {
 		sc?: (color: number) => string;
 		anchors?: d3.Selection<
 			SVGCircleElement,
@@ -23,9 +24,7 @@ export class TeaserOverlay {
 			SVGSVGElement,
 			unknown
 		>;
-		drag?: d3.DragBehavior<SVGElement, [number, number], unknown>;
 	};
-	epochIndicator: d3.Selection<SVGTextElement, unknown, HTMLElement, any>;
 
 	anchorRadius?: number;
 	annotate?: (renderer: TeaserRenderer) => void;
@@ -51,11 +50,10 @@ export class TeaserOverlay {
 		this.selectedClasses = new Set();
 		this.renderer = renderer;
 
-		let figure = d3.select("d-figure." + renderer.gl.canvas.id);
-		this.figure = figure;
+		this.figure = d3.select(renderer.gl.canvas.parentNode as HTMLElement);
 
 		let self = this;
-		this.epochSlider = figure
+		this.epochSlider = this.figure
 			.insert("input", ":first-child")
 			.attr("type", "range")
 			.attr("class", "slider epochSlider")
@@ -71,7 +69,7 @@ export class TeaserOverlay {
 				self.playButton.select("span").text("Play training");
 			});
 
-		this.playButton = figure
+		this.playButton = this.figure
 			.insert("i", ":first-child")
 			.attr(
 				"class",
@@ -103,7 +101,7 @@ export class TeaserOverlay {
 			this.playButton.style("display", "none");
 		}
 
-		this.fullScreenButton = figure
+		this.fullScreenButton = this.figure
 			.insert("i", ":first-child")
 			.attr("class", "tooltip teaser-fullscreenButton fas fa-expand-arrows-alt")
 			.on("mouseover", function () {
@@ -121,7 +119,7 @@ export class TeaserOverlay {
 			.attr("class", "tooltipTextBottom")
 			.text("Toggle fullscreen");
 
-		this.grandtourButton = figure
+		this.grandtourButton = this.figure
 			.insert("i", ":first-child")
 			.attr("class", "teaser-grandtourButton tooltip fas fa-globe-americas")
 			.attr("width", 32)
@@ -166,7 +164,7 @@ export class TeaserOverlay {
 				}
 			});
 
-		this.svg = figure
+		this.svg = this.figure
 			.insert("svg", ":first-child")
 			.attr("class", "overlay")
 			.attr("width", this.width)
