@@ -5,6 +5,7 @@ specifiers:
   '@types/numeric': ^1.2.2
   apache-arrow: ^9.0.0
   d3: ^7.6.1
+  eventemitter3: ^4.0.7
   mathjs: ^11.0.1
   numeric: ^1.2.6
   typescript: ^4.7.4
@@ -15,6 +16,7 @@ dependencies:
   '@types/numeric': 1.2.2
   apache-arrow: 9.0.0
   d3: 7.6.1
+  eventemitter3: 4.0.7
   mathjs: 11.0.1
   numeric: 1.2.6
 
@@ -808,6 +810,10 @@ packages:
   /escape-string-regexp/1.0.5:
     resolution: {integrity: sha512-vbRorB5FUQWvla16U8R/qgaFIya2qGzwDrNmCZuYKrbdSUMG6I1ZCGQRefkRVhuOkIGVne7BQ35DSfo1qvJqFg==}
     engines: {node: '>=0.8.0'}
+    dev: false
+
+  /eventemitter3/4.0.7:
+    resolution: {integrity: sha512-8guHBZCwKnFhYdHr2ysuRWErTwhoN2X8XELRlrRwpmfeY2jjuUN4taQMsULKUVo1K4DvZl+0pgfyoysHxvmvEw==}
     dev: false
 
   /find-replace/3.0.0:

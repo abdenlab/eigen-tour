@@ -1,14 +1,12 @@
 import * as d3 from "d3";
 import * as math from "mathjs";
 import * as utils from "./utils";
+import { Legend } from "./Legend";
 
 import type { Renderer } from "./Renderer";
-import type { ColorRGB, Scale } from "./types";
-
-export interface OverlayOptions {}
+import type { ColorRGB } from "./types";
 
 export class Overlay {
-	selectedClasses: Set<number>;
 	figure: d3.Selection<HTMLElement, unknown, null, undefined>;
 	epochSlider: d3.Selection<HTMLInputElement, unknown, null, undefined>;
 	playButton: d3.Selection<HTMLElement, unknown, null, undefined>;
@@ -19,17 +17,8 @@ export class Overlay {
 
 	anchorRadius?: number;
 	annotate?: (renderer: Renderer) => void;
+	legend?: Legend;
 
-	legendBox?: d3.Selection<SVGRectElement, number, SVGSVGElement, unknown>;
-	legendTitle?: d3.Selection<SVGTextElement, string, SVGSVGElement, unknown>;
-	legendTitleBg?: d3.Selection<SVGRectElement, number, SVGSVGElement, unknown>;
-	legendMark?: d3.Selection<
-		SVGCircleElement,
-		d3.RGBColor,
-		SVGSVGElement,
-		unknown
-	>;
-	legendText?: d3.Selection<SVGTextElement, string, SVGSVGElement, unknown>;
 	anchors?: d3.Selection<
 		SVGCircleElement,
 		[number, number],
@@ -37,14 +26,7 @@ export class Overlay {
 		unknown
 	>;
 
-	legend_sx?: Scale;
-	legend_sy?: Scale;
-
-	constructor(
-		public renderer: Renderer,
-		_opts: Partial<OverlayOptions> = {},
-	) {
-		this.selectedClasses = new Set();
+	constructor(public renderer: Renderer) {
 		this.renderer = renderer;
 
 		this.figure = d3.select(renderer.gl.canvas.parentNode as HTMLElement);
@@ -142,7 +124,7 @@ export class Overlay {
 				renderer.shouldCentralizeOrigin = renderer.shouldPlayGrandTour;
 
 				renderer.isScaleInTransition = true;
-				renderer.setScaleFactor(1.0);
+				renderer.scaleFactor = 1.0;
 				renderer.scaleTransitionProgress = renderer.shouldCentralizeOrigin
 					? Math.min(1, renderer.scaleTransitionProgress)
 					: Math.max(0, renderer.scaleTransitionProgress);
@@ -207,7 +189,7 @@ export class Overlay {
 		return utils.getDataset() as keyof typeof utils.legendTitle;
 	}
 
-	updateArchorRadius() {
+	updateAnchorRadius() {
 		this.anchorRadius = utils.clamp(
 			7,
 			10,
@@ -219,12 +201,14 @@ export class Overlay {
 	resize() {
 		this.svg.attr("width", this.width);
 		this.svg.attr("height", this.height);
-		this.initLegendScale();
-		this.updateArchorRadius();
+		this.legend?.reposition();
+		this.updateAnchorRadius();
 		this.repositionAll();
 	}
 
 	repositionAll() {
+		this.legend?.reposition();
+
 		let sliderLeft = parseFloat(this.epochSlider.style("left"));
 		let sliderWidth = parseFloat(this.epochSlider.style("width"));
 		let sliderMiddle = sliderLeft + sliderWidth / 2;
@@ -237,45 +221,6 @@ export class Overlay {
 			this.epochIndicator
 				.attr("x", this.width / 2 - 10)
 				.attr("y", this.height - 20);
-		}
-
-		if (!(this.legend_sx && this.legend_sy)) return;
-
-		let r = (this.legend_sy(1) - this.legend_sy(0)) / 4;
-
-		this.legendMark
-			?.attr("cx", this.legend_sx(0.001) + 2.5 * r)
-			.attr("cy", (_, i) => this.legend_sy!(i + 0.5))
-			.attr("r", r);
-
-		this.legendText
-			?.attr("x", +this.legend_sx(0.0) + 2.5 * r + 2.5 * r)
-			.attr("y", (_, i) => this.legend_sy!(i + 0.5));
-
-		this.legendBox
-			?.attr("x", this.legend_sx.range()[0])
-			.attr("y", this.legend_sy(-1))
-			.attr("width", this.legend_sx.range()[1] - this.legend_sx.range()[0])
-			.attr(
-				"height",
-				this.legend_sy(utils.getLabelNames().length + 1) - this.legend_sy(-1),
-			)
-			.attr("rx", r);
-
-		if (this.legendTitle !== undefined) {
-			this.legendTitle
-				.attr("x", this.legend_sx(0.5))
-				.attr("y", this.legend_sy(-1))
-				.text(utils.legendTitle[this.getDataset()] || "");
-
-			let rectData = this.legendTitle.node()!.getBBox();
-			let padding = 2;
-			this.legendTitleBg!
-				.attr("x", rectData.x - padding)
-				.attr("y", rectData.y - padding)
-				.attr("width", rectData.width + 2 * padding)
-				.attr("height", rectData.height + 2 * padding)
-				.attr("opacity", utils.legendTitle[this.getDataset()] ? 1 : 0);
 		}
 	}
 
@@ -362,183 +307,43 @@ export class Overlay {
 			.attr("cy", (_, i) => this.renderer.sy(handlePos[i][1]));
 	}
 
-	initLegendScale() {
-		let width = +this.svg.attr("width");
-		let marginTop = 20;
-		let padding = 8;
-
-		let legendLeft = width - utils.legendLeft[this.getDataset()];
-		let legendRight = width - utils.legendRight[this.getDataset()];
-
-		this.legend_sx = d3.scaleLinear()
-			.domain([0, 1])
-			.range([legendLeft, legendRight]);
-		this.legend_sy = d3.scaleLinear()
-			.domain([
-				-1,
-				0,
-				utils.getLabelNames().length,
-				utils.getLabelNames().length + 1,
-			])
-			.range([
-				marginTop - padding,
-				marginTop,
-				marginTop + 170,
-				marginTop + 170 + padding,
-			]);
-	}
-
 	initLegend(colors: ColorRGB[], labels: string[]) {
-		this.initLegendScale();
-
-		let clearColor = d3.rgb(
-			...utils.CLEAR_COLOR.map((d) => d * 255) as ColorRGB,
-		);
-
-		if (this.legendBox === undefined) {
-			this.legendBox = this.svg.selectAll(".legendBox")
-				.data([0])
-				.enter()
-				.append("rect")
-				.attr("class", "legendBox")
-				.attr("fill", clearColor.formatRgb())
-				.attr("stroke", "#c1c1c1")
-				.attr("stroke-width", 1);
-		}
-
-		let legendTitleText = utils.legendTitle[this.getDataset()];
-		if (
-			this.legendTitle === undefined && legendTitleText !== undefined
-		) {
-			this.legendTitleBg = this.svg.selectAll(".legendTitleBg")
-				.data([0])
-				.enter()
-				.append("rect")
-				.attr("class", "legendTitleBg")
-				.attr("fill", clearColor.formatRgb());
-
-			this.legendTitle = this.svg.selectAll(".legendTitle")
-				.data([legendTitleText])
-				.enter()
-				.append("text")
-				.attr("class", "legendTitle")
-				.attr("alignment-baseline", "middle")
-				.attr("text-anchor", "middle")
-				.text((d) => d);
-		}
-
-		let self = this;
-
-		this.legendMark = this.svg.selectAll(".legendMark")
-			.data(colors.map((c) => d3.rgb(...c)))
-			.enter()
-			.append("circle")
-			.attr("class", "legendMark");
-
-		this.legendMark
-			.attr("fill", (color) => color.formatRgb())
-			.on("mouseover", function () {
-				const e = self.legendMark!.nodes();
-				const i = e.indexOf(this);
-
-				let classes = new Set(self.selectedClasses);
-				if (!classes.has(i)) {
-					classes.add(i);
-				}
-				self.onSelectLegend(classes);
-			})
-			.on("mouseout", () => this.restoreAlpha())
-			.on("click", function () {
-				const e = self.legendMark!.nodes();
-				const i = e.indexOf(this);
-
-				if (self.selectedClasses.has(i)) {
-					self.selectedClasses.delete(i);
-				} else {
-					self.selectedClasses.add(i);
-				}
-				self.onSelectLegend(self.selectedClasses);
-				if (self.selectedClasses.size == self.renderer.dataObj?.ndim) {
-					self.selectedClasses = new Set();
-				}
-			});
-
-		this.legendText = this.svg.selectAll(".legendText")
-			.data(labels)
-			.enter()
-			.append("text")
-			.attr("class", "legendText");
-
-		this.legendText
-			.attr("alignment-baseline", "middle")
-			.attr("fill", "#333")
-			.text((label) => label)
-			.on("mouseover", function () {
-				const e = self.legendText!.nodes();
-				const i = e.indexOf(this);
-				let classes = new Set(self.selectedClasses);
-				if (!classes.has(i)) {
-					classes.add(i);
-				}
-				self.onSelectLegend(classes);
-			})
-			.on("mouseout", () => this.restoreAlpha())
-			.on("click", function () {
-				const e = self.legendText!.nodes();
-				const i = e.indexOf(this);
-
-				if (self.selectedClasses.has(i)) {
-					self.selectedClasses.delete(i);
-				} else {
-					self.selectedClasses.add(i);
-				}
-				self.onSelectLegend(self.selectedClasses);
-
-				if (self.selectedClasses.size == self.renderer.dataObj?.ndim) {
-					self.selectedClasses = new Set();
-				}
-			});
-	}
-
-	onSelectLegend(labelClasses: number | number[] | Set<number>) {
-		if (!this.renderer.dataObj) return;
-
-		if (typeof labelClasses === "number") {
-			labelClasses = [labelClasses];
-		}
-		let labelSet = new Set(labelClasses);
-
-		for (let i = 0; i < this.renderer.dataObj.npoint; i++) {
-			if (labelSet.has(this.renderer.dataObj.labels[i])) {
-				this.renderer.dataObj.alphas[i] = 255;
-			} else {
-				this.renderer.dataObj.alphas[i] = 0;
-			}
-		}
-
-		this.legendMark?.attr("opacity", (_, i) => labelSet.has(i) ? 1.0 : 0.1);
-	}
-
-	restoreAlpha() {
-		if (!this.renderer.dataObj) return;
-		if (this.selectedClasses.size == 0) {
+		let legend = new Legend(this.svg, {
+			title: utils.legendTitle[this.getDataset()],
+			colors: colors,
+			labels: labels,
+			left: this.width - utils.legendLeft[this.getDataset()],
+			right: this.width - utils.legendRight[this.getDataset()],
+		});
+		legend.on("select", (classes) => {
+			if (!this.renderer.dataObj) return;
 			for (let i = 0; i < this.renderer.dataObj.npoint; i++) {
-				this.renderer.dataObj.alphas[i] = 255;
-			}
-		} else {
-			for (let i = 0; i < this.renderer.dataObj.npoint; i++) {
-				if (this.selectedClasses.has(this.renderer.dataObj.labels[i])) {
+				if (classes.has(this.renderer.dataObj.labels[i])) {
 					this.renderer.dataObj.alphas[i] = 255;
 				} else {
 					this.renderer.dataObj.alphas[i] = 0;
 				}
 			}
-		}
-
-		this.legendMark?.attr("opacity", (_, i) => {
-			return this.selectedClasses.size == 0 || this.selectedClasses.has(i)
-				? 1.0
-				: 0.1;
+			if (classes.size == this.renderer.dataObj.ndim) {
+				legend.clearSelected();
+			}
 		});
+		legend.on("mouseout", (classes) => {
+			if (!this.renderer.dataObj) return;
+			if (classes.size == 0) {
+				for (let i = 0; i < this.renderer.dataObj.npoint; i++) {
+					this.renderer.dataObj.alphas[i] = 255;
+				}
+			} else {
+				for (let i = 0; i < this.renderer.dataObj.npoint; i++) {
+					if (classes.has(this.renderer.dataObj.labels[i])) {
+						this.renderer.dataObj.alphas[i] = 255;
+					} else {
+						this.renderer.dataObj.alphas[i] = 0;
+					}
+				}
+			}
+		});
+		this.legend = legend;
 	}
 }
