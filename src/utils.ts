@@ -210,7 +210,9 @@ export function createLoadingBanner(sel: d3.Selection<any, any, any, any>) {
 	}
 	repeat();
 
-	return () => { banner.remove() };
+	return () => {
+		banner.remove();
+	};
 }
 
 // TODO: fail when shape isn't tuple... Right now returns `number`.

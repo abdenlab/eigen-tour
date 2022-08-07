@@ -206,15 +206,24 @@ export class Renderer {
 			"isDrawingAxis",
 		)!;
 
-		this.canvasWidthLoc = this.gl.getUniformLocation(this.program, "canvasWidth")!;
-		this.canvasHeightLoc = this.gl.getUniformLocation(this.program, "canvasHeight")!;
+		this.canvasWidthLoc = this.gl.getUniformLocation(
+			this.program,
+			"canvasWidth",
+		)!;
+		this.canvasHeightLoc = this.gl.getUniformLocation(
+			this.program,
+			"canvasHeight",
+		)!;
 		this.gl.uniform1f(this.canvasWidthLoc, this.gl.canvas.clientWidth);
 		this.gl.uniform1f(this.canvasHeightLoc, this.gl.canvas.clientHeight);
 
 		this.modeLoc = this.gl.getUniformLocation(this.program, "mode")!;
 		this.gl.uniform1i(this.modeLoc, 0); // "point" mode
 
-		this.colorFactorLoc = this.gl.getUniformLocation(this.program, "colorFactor")!;
+		this.colorFactorLoc = this.gl.getUniformLocation(
+			this.program,
+			"colorFactor",
+		)!;
 		this.setColorFactor(this.colorFactor);
 
 		if (this.gt === undefined || this.gt.ndim != dataObj.ndim) {
@@ -272,7 +281,6 @@ export class Renderer {
 		this.#pointSize = s;
 		this.gl.uniform1f(this.pointSizeLoc!, s * window.devicePixelRatio);
 	}
-
 
 	pause() {
 		if (this.animId) {

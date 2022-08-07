@@ -15,7 +15,7 @@ async function main() {
 
 	let removeBanner = utils.createLoadingBanner(renderer.overlay.figure);
 	let response = await fetch(
-		new URL("../data/eigs.arrow", import.meta.url)
+		new URL("../data/eigs.arrow", import.meta.url),
 	);
 	await renderer.initData(await response.arrayBuffer());
 
