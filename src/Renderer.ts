@@ -359,7 +359,7 @@ export class Renderer {
 			this.sy_center,
 			this.sz_center,
 			this.scaleFactor,
-			utils.legendLeft[this.overlay.getDataset()] + 15,
+			utils.legendLeft[this.overlay.dataset] + 15,
 			65,
 		);
 
@@ -370,7 +370,7 @@ export class Renderer {
 			this.sy_span,
 			this.sz_span,
 			this.scaleFactor,
-			utils.legendLeft[this.overlay.getDataset()] + 15,
+			utils.legendLeft[this.overlay.dataset] + 15,
 			65,
 		);
 

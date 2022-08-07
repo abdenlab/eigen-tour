@@ -2,43 +2,23 @@ import * as d3 from "d3";
 import EventEmitter from "eventemitter3";
 import * as utils from "./utils";
 
-import type { ColorRGB, Scale } from "./types";
+import type { ColorRGB } from "./types";
 
 let clearColor = d3.rgb(
 	...utils.CLEAR_COLOR.map((d) => d * 255) as ColorRGB,
 );
 
-function createScales(opts: { left: number; right: number }) {
-	let marginTop = 20;
-	let padding = 8;
-	return {
-		x: d3.scaleLinear()
-			.domain([0, 1])
-			.range([opts.left, opts.right]),
-		y: d3.scaleLinear()
-			.domain([
-				-1,
-				0,
-				utils.getLabelNames().length,
-				utils.getLabelNames().length + 1,
-			])
-			.range([
-				marginTop - padding,
-				marginTop,
-				marginTop + 170,
-				marginTop + 170 + padding,
-			]),
-	};
-}
-
-class LegendEvents {
-	"select": [classes: Set<number>];
-	"mouseout": [classes: Set<number>];
+interface LegendEvents {
+	select: [classes: Set<number>];
+	mouseout: [classes: Set<number>];
 }
 
 export class Legend extends EventEmitter<LegendEvents> {
+	#root: d3.Selection<SVGSVGElement, unknown, null, undefined>;
 	#selected: Set<number>;
-	title: string;
+	#margin: { left: number; right: number };
+	#labels: string[];
+	#titleData: string;
 	#mark: d3.Selection<
 		SVGCircleElement,
 		d3.RGBColor,
@@ -49,7 +29,6 @@ export class Legend extends EventEmitter<LegendEvents> {
 	#text: d3.Selection<SVGTextElement, string, SVGSVGElement, unknown>;
 	#title: d3.Selection<SVGTextElement, string, SVGSVGElement, unknown>;
 	#titleBg: d3.Selection<SVGRectElement, number, SVGSVGElement, unknown>;
-	#scale: { x: Scale; y: Scale };
 
 	constructor(
 		root: d3.Selection<SVGSVGElement, unknown, null, undefined>,
@@ -57,15 +36,15 @@ export class Legend extends EventEmitter<LegendEvents> {
 			title: string;
 			colors: ColorRGB[];
 			labels: string[];
-			left: number;
-			right: number;
+			margin: { left: number; right: number };
 		},
 	) {
 		super();
-
-		this.#scale = createScales(opts);
+		this.#root = root;
 		this.#selected = new Set();
-		this.title = opts.title;
+		this.#margin = opts.margin;
+		this.#labels = opts.labels;
+		this.#titleData = opts.title;
 
 		this.#box = root.selectAll(".legendBox")
 			.data([0])
@@ -101,9 +80,10 @@ export class Legend extends EventEmitter<LegendEvents> {
 			.attr("class", "legendMark");
 
 		const mouseout = () => {
-			this.#mark.attr("opacity", (_, i) => {
-				return this.#selected.size == 0 || this.#selected.has(i) ? 1.0 : 0.1;
-			});
+			this.#mark.attr(
+				"opacity",
+				(_, i) => this.#selected.size == 0 || this.#selected.has(i) ? 1.0 : 0.1,
+			);
 			this.emit("mouseout", this.#selected);
 		};
 
@@ -164,41 +144,62 @@ export class Legend extends EventEmitter<LegendEvents> {
 			});
 	}
 
-	reposition() {
-		let r = (this.#scale.y(1) - this.#scale.y(0)) / 4;
+	resize() {
+		let width = +this.#root.node()!.clientWidth;
+		let marginTop = 20;
+		let padding = 8;
+
+		let sx = d3.scaleLinear()
+			.domain([0, 1])
+			.range([width - this.#margin.left, width - this.#margin.right]);
+
+		let sy = d3.scaleLinear()
+			.domain([
+				-1,
+				0,
+				utils.getLabelNames().length,
+				utils.getLabelNames().length + 1,
+			])
+			.range([
+				marginTop - padding,
+				marginTop,
+				marginTop + 170,
+				marginTop + 170 + padding,
+			]);
+
+		let r = (sy(1) - sy(0)) / 4;
 
 		this.#mark
-			.attr("cx", this.#scale.x(0.001) + 2.5 * r)
-			.attr("cy", (_, i) => this.#scale.y(i + 0.5))
+			.attr("cx", sx(0.001) + 2.5 * r)
+			.attr("cy", (_, i) => sy(i + 0.5))
 			.attr("r", r);
 
 		this.#text
-			.attr("x", +this.#scale.x(0.0) + 2.5 * r + 2.5 * r)
-			.attr("y", (_, i) => this.#scale.y!(i + 0.5));
+			.attr("x", sx(0.0) + 2.5 * r + 2.5 * r)
+			.attr("y", (_, i) => sy!(i + 0.5));
 
 		this.#box
-			?.attr("x", this.#scale.x.range()[0])
-			.attr("y", this.#scale.y(-1))
-			.attr("width", this.#scale.x.range()[1] - this.#scale.x.range()[0])
-			.attr(
-				"height",
-				this.#scale.y(utils.getLabelNames().length + 1) - this.#scale.y(-1),
-			)
+			?.attr("x", sx.range()[0])
+			.attr("y", sy(-1))
+			.attr("width", sx.range()[1] - sx.range()[0])
+			.attr("height", sy(this.#labels.length + 1) - sy(-1))
 			.attr("rx", r);
 
 		this.#title
-			.attr("x", this.#scale.x(0.5))
-			.attr("y", this.#scale.y(-1))
-			.text(this.title);
+			.attr("x", sx(0.5))
+			.attr("y", sy(-1))
+			.text(this.#titleData);
 
-		let rectData = this.#title?.node()!.getBBox();
-		let padding = 2;
-		this.#titleBg
-			.attr("x", rectData.x - padding)
-			.attr("y", rectData.y - padding)
-			.attr("width", rectData.width + 2 * padding)
-			.attr("height", rectData.height + 2 * padding)
-			.attr("opacity", this.title ? 1 : 0);
+		{
+			let rectData = this.#title?.node()!.getBBox();
+			let padding = 2;
+			this.#titleBg
+				.attr("x", rectData.x - padding)
+				.attr("y", rectData.y - padding)
+				.attr("width", rectData.width + 2 * padding)
+				.attr("height", rectData.height + 2 * padding)
+				.attr("opacity", this.#titleData ? 1 : 0);
+		}
 	}
 
 	clearSelected() {

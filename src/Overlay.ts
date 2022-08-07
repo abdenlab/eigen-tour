@@ -173,41 +173,30 @@ export class Overlay {
 		}
 	}
 
-	get canvas() {
-		return this.renderer.gl.canvas;
-	}
-
 	get width() {
-		return this.canvas.clientWidth;
+		return this.renderer.gl.canvas.clientWidth;
 	}
 
 	get height() {
-		return this.canvas.clientHeight;
+		return this.renderer.gl.canvas.clientHeight;
 	}
 
-	getDataset() {
+	get dataset() {
 		return utils.getDataset() as keyof typeof utils.legendTitle;
 	}
 
-	updateAnchorRadius() {
+	resize() {
+		this.svg.attr("width", this.width);
+		this.svg.attr("height", this.height);
+
+		this.legend?.resize();
+
 		this.anchorRadius = utils.clamp(
 			7,
 			10,
 			Math.min(this.width, this.height) / 50,
 		);
 		this.anchors?.attr("r", this.anchorRadius);
-	}
-
-	resize() {
-		this.svg.attr("width", this.width);
-		this.svg.attr("height", this.height);
-		this.legend?.reposition();
-		this.updateAnchorRadius();
-		this.repositionAll();
-	}
-
-	repositionAll() {
-		this.legend?.reposition();
 
 		let sliderLeft = parseFloat(this.epochSlider.style("left"));
 		let sliderWidth = parseFloat(this.epochSlider.style("width"));
@@ -225,7 +214,7 @@ export class Overlay {
 	}
 
 	init() {
-		let labels = utils.getLabelNames(false, this.getDataset());
+		let labels = utils.getLabelNames(false, this.dataset);
 		let colors = utils.baseColors.slice(0, labels.length);
 		this.initLegend(colors, labels);
 		this.resize();
@@ -309,11 +298,13 @@ export class Overlay {
 
 	initLegend(colors: ColorRGB[], labels: string[]) {
 		let legend = new Legend(this.svg, {
-			title: utils.legendTitle[this.getDataset()],
+			title: utils.legendTitle[this.dataset],
 			colors: colors,
 			labels: labels,
-			left: this.width - utils.legendLeft[this.getDataset()],
-			right: this.width - utils.legendRight[this.getDataset()],
+			margin: {
+				left: utils.legendLeft[this.dataset],
+				right: utils.legendRight[this.dataset],
+			},
 		});
 		legend.on("select", (classes) => {
 			if (!this.renderer.dataObj) return;
