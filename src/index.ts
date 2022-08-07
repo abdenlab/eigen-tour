@@ -1,13 +1,12 @@
-import { TeaserRenderer } from "./TeaserRenderer";
+import { Renderer } from "./Renderer";
 import * as utils from "./utils";
-
 import fs from "./shaders/teaser_fragment.glsl";
 import vs from "./shaders/teaser_vertex.glsl";
 
 async function main() {
 	let canvas = document.querySelector("canvas")!;
 	let { gl, program } = utils.initGL(canvas, fs, vs);
-	let teaser = new TeaserRenderer(gl, program);
+	let teaser = new Renderer(gl, program);
 
 	teaser.overlay.fullScreenButton.style("top", "18px");
 	teaser.overlay.epochSlider.style("top", "calc(100% - 28px)");

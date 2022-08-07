@@ -1,12 +1,11 @@
 import * as arrow from "apache-arrow";
 import * as d3 from "d3";
 import * as math from "mathjs";
-
 import * as utils from "./utils";
 import { GrandTour } from "./GrandTour";
-import { TeaserOverlay, TeaserOverlayOptions } from "./TeaserOverlay";
+import { Overlay, OverlayOptions } from "./Overlay";
 
-import type { ColorRGBA, Renderer } from "./types";
+import type { ColorRGBA } from "./types";
 
 interface Data {
 	labels: number[];
@@ -20,17 +19,17 @@ interface Data {
 	colors?: ColorRGBA[];
 }
 
-interface TeaserRendererOptions {
+interface RendererOptions {
 	epochs: number[];
 	epochIndex: number;
 	shouldAutoNextEpoch: boolean;
 	shouldPlayGrandTour: boolean;
 	isFullScreen: boolean;
-	overlayKwargs: TeaserOverlayOptions;
+	overlayKwargs: OverlayOptions;
 	pointSize: number;
 }
 
-export class TeaserRenderer implements Renderer {
+export class Renderer {
 	framesPerTransition = 30;
 	framesPerEpoch = 60;
 	scaleTransitionProgress = 0;
@@ -41,7 +40,6 @@ export class TeaserRenderer implements Renderer {
 	shouldRender = true;
 	scaleFactor = 1.0;
 	s = 1.0;
-	mode: "point" = "point";
 
 	id: string;
 	epochs: number[];
@@ -50,7 +48,7 @@ export class TeaserRenderer implements Renderer {
 	shouldPlayGrandTour: boolean;
 	pointSize: number;
 	pointSize0: number;
-	overlay: TeaserOverlay;
+	overlay: Overlay;
 	sx_span: d3.ScaleLinear<number, number, never>;
 	sy_span: d3.ScaleLinear<number, number, never>;
 	sz_span: d3.ScaleLinear<number, number, never>;
@@ -59,7 +57,7 @@ export class TeaserRenderer implements Renderer {
 	sz_center: d3.ScaleLinear<number, number, never>;
 	sx: d3.ScaleLinear<number, number, never>;
 	sy: d3.ScaleLinear<number, number, never>;
-	sz?: d3.ScaleLinear<number, number, never>;
+	sz: d3.ScaleLinear<number, number, never>;
 
 	dataObj?: Data;
 	shouldRecalculateColorRect?: boolean;
@@ -87,7 +85,7 @@ export class TeaserRenderer implements Renderer {
 	constructor(
 		public gl: WebGLRenderingContext,
 		public program: WebGLProgram,
-		opts: Partial<TeaserRendererOptions> = {},
+		opts: Partial<RendererOptions> = {},
 	) {
 		this.id = gl.canvas.id;
 		this.epochs = opts.epochs ?? [0];
@@ -96,7 +94,7 @@ export class TeaserRenderer implements Renderer {
 		this.shouldPlayGrandTour = opts.shouldPlayGrandTour ?? true;
 		this.pointSize = opts.pointSize ?? 6.0;
 		this.pointSize0 = this.pointSize;
-		this.overlay = new TeaserOverlay(this, opts.overlayKwargs);
+		this.overlay = new Overlay(this, opts.overlayKwargs);
 
 		this.sx_span = d3.scaleLinear();
 		this.sy_span = d3.scaleLinear();
@@ -106,6 +104,7 @@ export class TeaserRenderer implements Renderer {
 		this.sz_center = d3.scaleLinear();
 		this.sx = this.sx_center;
 		this.sy = this.sy_center;
+		this.sz = this.sz_center;
 	}
 
 	setScaleFactor(s: number) {
@@ -391,7 +390,6 @@ export class TeaserRenderer implements Renderer {
 			this.scaleTransitionProgress,
 			transition,
 		);
-		this.sz = this.sz_center;
 
 		points = utils.data2canvas(points, this.sx, this.sy, this.sz);
 
@@ -416,48 +414,37 @@ export class TeaserRenderer implements Renderer {
 			utils.flatten(points),
 			this.gl.STATIC_DRAW,
 		);
-		this.gl.vertexAttribPointer(
-			this.positionLoc!,
-			3,
-			this.gl.FLOAT,
-			false,
-			0,
-			0,
-		);
+		// deno-fmt-ignore
+		this.gl.vertexAttribPointer(this.positionLoc!, 3, this.gl.FLOAT, false, 0, 0);
 		this.gl.enableVertexAttribArray(this.positionLoc!);
 
 		this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.colorBuffer!);
 		this.gl.bufferData(
 			this.gl.ARRAY_BUFFER,
-			new Uint8Array(utils.flatten(colors)),
+			new Uint8Array(colors.flat()),
 			this.gl.STATIC_DRAW,
 		);
-		this.gl.vertexAttribPointer(
-			this.colorLoc!,
-			4,
-			this.gl.UNSIGNED_BYTE,
-			true,
-			0,
-			0,
-		);
+		// deno-fmt-ignore
+		this.gl.vertexAttribPointer(this.colorLoc!, 4, this.gl.UNSIGNED_BYTE, true, 0, 0);
 		this.gl.enableVertexAttribArray(this.colorLoc!);
 
-		let c0 = bgColors.map((c) => [c[0], c[1], c[2], utils.pointAlpha]);
 		this.gl.bufferData(
 			this.gl.ARRAY_BUFFER,
-			new Uint8Array(utils.flatten(c0)),
+			new Uint8Array(
+				bgColors.map((c) => [c[0], c[1], c[2], utils.pointAlpha]).flat()
+			),
 			this.gl.STATIC_DRAW,
 		);
 
-		let c1;
 		this.gl.uniform1i(this.isDrawingAxisLoc!, 0);
 		this.setPointSize(this.pointSize0 * Math.sqrt(this.scaleFactor));
 
 		this.gl.drawArrays(this.gl.POINTS, 0, dataObj.npoint);
-		c1 = colors.map((c, i) => [c[0], c[1], c[2], dataObj.alphas[i]]);
 		this.gl.bufferData(
 			this.gl.ARRAY_BUFFER,
-			new Uint8Array(utils.flatten(c1)),
+			new Uint8Array(
+				colors.map((c, i) => [c[0], c[1], c[2], dataObj.alphas[i]]).flat()
+			),
 			this.gl.STATIC_DRAW,
 		);
 

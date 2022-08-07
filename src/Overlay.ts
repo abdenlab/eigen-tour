@@ -1,14 +1,13 @@
-// @ts-check
 import * as d3 from "d3";
 import * as math from "mathjs";
 import * as utils from "./utils";
 
-import type { TeaserRenderer } from "./TeaserRenderer";
-import { ColorRGB, Scale } from "./types";
+import type { Renderer } from "./TeaserRenderer";
+import type { ColorRGB, Scale } from "./types";
 
-export interface TeaserOverlayOptions {}
+export interface OverlayOptions {}
 
-export class TeaserOverlay {
+export class Overlay {
 	selectedClasses: Set<number>;
 	figure: d3.Selection<HTMLElement, unknown, null, undefined>;
 	epochSlider: d3.Selection<HTMLInputElement, unknown, null, undefined>;
@@ -16,18 +15,10 @@ export class TeaserOverlay {
 	fullScreenButton: d3.Selection<HTMLElement, unknown, null, undefined>;
 	grandtourButton: d3.Selection<HTMLElement, unknown, null, undefined>;
 	epochIndicator: d3.Selection<SVGTextElement, unknown, null, undefined>;
-	svg: d3.Selection<SVGSVGElement, unknown, null, undefined> & {
-		sc?: (color: number) => string;
-		anchors?: d3.Selection<
-			SVGCircleElement,
-			[number, number],
-			SVGSVGElement,
-			unknown
-		>;
-	};
+	svg: d3.Selection<SVGSVGElement, unknown, null, undefined>;
 
 	anchorRadius?: number;
-	annotate?: (renderer: TeaserRenderer) => void;
+	annotate?: (renderer: Renderer) => void;
 
 	legendBox?: d3.Selection<SVGRectElement, number, SVGSVGElement, unknown>;
 	legendTitle?: d3.Selection<SVGTextElement, string, SVGSVGElement, unknown>;
@@ -39,13 +30,19 @@ export class TeaserOverlay {
 		unknown
 	>;
 	legendText?: d3.Selection<SVGTextElement, string, SVGSVGElement, unknown>;
+	anchors?: d3.Selection<
+		SVGCircleElement,
+		[number, number],
+		SVGSVGElement,
+		unknown
+	>;
 
 	legend_sx?: Scale;
 	legend_sy?: Scale;
 
 	constructor(
-		public renderer: TeaserRenderer,
-		_opts: Partial<TeaserOverlayOptions> = {},
+		public renderer: Renderer,
+		_opts: Partial<OverlayOptions> = {},
 	) {
 		this.selectedClasses = new Set();
 		this.renderer = renderer;
@@ -210,50 +207,36 @@ export class TeaserOverlay {
 		return utils.getDataset() as keyof typeof utils.legendTitle;
 	}
 
-	updateArchorRadius(mode: string) {
-		if (mode == "point") {
-			this.anchorRadius = utils.clamp(
-				7,
-				10,
-				Math.min(this.width, this.height) / 50,
-			);
-		} else {
-			this.anchorRadius = utils.clamp(
-				7,
-				15,
-				Math.min(this.width, this.height) / 30,
-			);
-		}
-		this.svg.selectAll(".anchor")
-			.attr("r", this.anchorRadius);
+	updateArchorRadius() {
+		this.anchorRadius = utils.clamp(
+			7,
+			10,
+			Math.min(this.width, this.height) / 50,
+		);
+		this.anchors?.attr("r", this.anchorRadius);
 	}
 
 	resize() {
-		let width = this.renderer.gl.canvas.clientWidth;
-		let height = this.renderer.gl.canvas.clientHeight;
-		this.svg.attr("width", width);
-		this.svg.attr("height", height);
+		this.svg.attr("width", this.width);
+		this.svg.attr("height", this.height);
 		this.initLegendScale();
-		this.updateArchorRadius(this.renderer.mode);
+		this.updateArchorRadius();
 		this.repositionAll();
 	}
 
 	repositionAll() {
-		let width = +this.svg.attr("width");
-		let height = +this.svg.attr("height");
-
 		let sliderLeft = parseFloat(this.epochSlider.style("left"));
 		let sliderWidth = parseFloat(this.epochSlider.style("width"));
 		let sliderMiddle = sliderLeft + sliderWidth / 2;
 
 		this.epochIndicator
 			.attr("x", sliderMiddle)
-			.attr("y", height - 35);
+			.attr("y", this.height - 35);
 
 		if (this.renderer.epochs.length <= 1) {
 			this.epochIndicator
-				.attr("x", width / 2 - 10)
-				.attr("y", height - 20);
+				.attr("x", this.width / 2 - 10)
+				.attr("y", this.height - 20);
 		}
 
 		if (!(this.legend_sx && this.legend_sy)) return;
@@ -301,15 +284,10 @@ export class TeaserOverlay {
 		let colors = utils.baseColors.slice(0, labels.length);
 		this.initLegend(colors, labels);
 		this.resize();
-		this.initAxisHandle();
+		this.drawAxes();
 		if (this.annotate !== undefined) {
 			this.annotate(this.renderer);
 		}
-	}
-
-	initAxisHandle() {
-		this.svg.sc = d3.interpolateGreys;
-		this.drawAxes();
 	}
 
 	drawAxes() {
@@ -320,21 +298,19 @@ export class TeaserOverlay {
 		let mat = math.zeros(ndim, ndim);
 		let coordinates = (mat as unknown as { _data: [number, number][] })._data;
 
-		let anchors = svg.selectAll(".anchor")
+		this.anchors = svg.selectAll(".anchor")
 			.data(coordinates)
 			.enter()
 			.append("circle")
 			.attr("class", "anchor")
 			.attr("opacity", 0.2);
 
-		anchors
+		this.anchors
 			.attr("cx", ([x, _]) => this.renderer.sx(x))
 			.attr("cy", ([_, y]) => this.renderer.sy(y))
 			.attr("r", this.anchorRadius!)
 			.attr("stroke", () => "white")
 			.style("cursor", "pointer");
-
-		svg.anchors = anchors;
 
 		let self = this;
 		let drag = d3.drag<SVGCircleElement, [number, number], unknown>()
@@ -348,7 +324,7 @@ export class TeaserOverlay {
 				let dx = renderer.sx.invert(event.dx) - renderer.sx.invert(0);
 				let dy = renderer.sy.invert(event.dy) - renderer.sy.invert(0);
 				let matrix = renderer.gt.getMatrix();
-				let i = anchors.nodes().indexOf(this);
+				let i = self.anchors!.nodes().indexOf(this);
 				matrix[i][0] += dx;
 				matrix[i][1] += dy;
 				matrix = utils.orthogonalize(matrix, i);
@@ -362,7 +338,7 @@ export class TeaserOverlay {
 				renderer.shouldPlayGrandTourPrev = undefined;
 			});
 
-		anchors
+		this.anchors
 			.on("mouseover", () => {
 				if (!renderer.gt) return;
 				renderer.gt.STEPSIZE_PREV = renderer.gt.STEPSIZE;

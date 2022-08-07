@@ -1,6 +1,5 @@
 import * as math from "mathjs";
 import numeric from "numeric";
-
 import * as utils from "./utils";
 
 function initThetas(N: number) {
