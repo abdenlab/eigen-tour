@@ -13,13 +13,12 @@ async function main() {
 	renderer.overlay.playButton.style("top", "calc(100% - 34px)");
 	renderer.overlay.grandtourButton.style("top", "calc(100% - 34px)");
 
-	let removeBanner = utils.createLoadingBanner(renderer.overlay.figure);
-	let response = await fetch(
-		new URL("../data/eigs.arrow", import.meta.url)
-	);
-	await renderer.initData(await response.arrayBuffer());
-
-	removeBanner();
+	{
+		let clearBanner = utils.createLoadingBanner(renderer.overlay.figure);
+		let res = await fetch(new URL("../data/eigs.arrow", import.meta.url))
+		await renderer.initData(await res.arrayBuffer());
+		clearBanner();
+	}
 
 	window.addEventListener("resize", () => {
 		renderer.setFullScreen(renderer.isFullScreen);

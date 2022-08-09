@@ -3,7 +3,7 @@ import * as d3 from "d3";
 import * as math from "mathjs";
 import * as utils from "./utils";
 import { GrandTour } from "./GrandTour";
-import { Overlay, OverlayOptions } from "./Overlay";
+import { Overlay } from "./Overlay";
 
 import type { ColorRGBA } from "./types";
 
@@ -25,7 +25,6 @@ interface RendererOptions {
 	shouldAutoNextEpoch: boolean;
 	shouldPlayGrandTour: boolean;
 	isFullScreen: boolean;
-	overlayKwargs: OverlayOptions;
 	pointSize: number;
 }
 
@@ -36,7 +35,6 @@ export class Renderer {
 	scaleTransitionDelta = 0;
 	colorFactor = 0.9;
 	isFullScreen = false;
-	isDataReady = false;
 	shouldRender = true;
 	scaleFactor = 1.0;
 	s = 1.0;
@@ -46,7 +44,7 @@ export class Renderer {
 	epochIndex: number;
 	shouldAutoNextEpoch: boolean;
 	shouldPlayGrandTour: boolean;
-	pointSize: number;
+	#pointSize: number;
 	pointSize0: number;
 	overlay: Overlay;
 	sx_span: d3.ScaleLinear<number, number, never>;
@@ -92,9 +90,8 @@ export class Renderer {
 		this.epochIndex = opts.epochIndex ?? this.epochs[0];
 		this.shouldAutoNextEpoch = opts.shouldAutoNextEpoch ?? true;
 		this.shouldPlayGrandTour = opts.shouldPlayGrandTour ?? true;
-		this.pointSize = opts.pointSize ?? 6.0;
-		this.pointSize0 = this.pointSize;
-		this.overlay = new Overlay(this, opts.overlayKwargs);
+		this.pointSize0 = this.#pointSize = opts.pointSize ?? 6.0;
+		this.overlay = new Overlay(this);
 
 		this.sx_span = d3.scaleLinear();
 		this.sy_span = d3.scaleLinear();
@@ -105,10 +102,6 @@ export class Renderer {
 		this.sx = this.sx_center;
 		this.sy = this.sy_center;
 		this.sz = this.sz_center;
-	}
-
-	setScaleFactor(s: number) {
-		this.scaleFactor = s;
 	}
 
 	async initData(buffer: ArrayBuffer) {
@@ -134,7 +127,6 @@ export class Renderer {
 		let dataTensor = utils.reshape(new Float32Array(arr), shape);
 
 		this.shouldRecalculateColorRect = true;
-		this.isDataReady = true;
 
 		this.dataObj = {
 			labels,
@@ -145,12 +137,12 @@ export class Renderer {
 			ndim,
 			npoint,
 			nepoch,
-			alphas: d3.range(npoint + 5 * npoint).map(() => 255),
+			alphas: Array.from({ length: npoint + 5 * npoint }, () => 255),
 		};
 
 		this.initGL(this.dataObj);
 
-		if (this.isDataReady && this.isPlaying === undefined) {
+		if (this.isPlaying === undefined) {
 			// renderer.isPlaying===undefined indicates the renderer on init
 			// otherwise it is reloading other dataset
 			this.isPlaying = true;
@@ -159,7 +151,6 @@ export class Renderer {
 		}
 
 		if (
-			this.isDataReady &&
 			(this.animId == null || this.shouldRender == false)
 		) {
 			this.shouldRender = true;
@@ -184,12 +175,20 @@ export class Renderer {
 		this.gl.viewport(0, 0, canvas.width, canvas.height);
 	}
 
+	get #clearColor() {
+		return this.gl.getParameter(this.gl.COLOR_CLEAR_VALUE) as [
+			number,
+			number,
+			number,
+			number,
+		];
+	}
+
 	initGL(dataObj: Data) {
-		let program = this.program;
 		utils.resizeCanvas(this.gl.canvas);
 
 		this.gl.viewport(0, 0, this.gl.canvas.width, this.gl.canvas.height);
-		this.gl.clearColor(...utils.CLEAR_COLOR, 1.0);
+		this.gl.clearColor(...this.#clearColor);
 
 		this.gl.enable(this.gl.BLEND);
 		this.gl.disable(this.gl.DEPTH_TEST);
@@ -201,30 +200,39 @@ export class Renderer {
 		);
 
 		this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
-		this.gl.useProgram(program);
+		this.gl.useProgram(this.program);
 
 		this.colorBuffer = this.gl.createBuffer()!;
-		this.colorLoc = this.gl.getAttribLocation(program, "a_color");
+		this.colorLoc = this.gl.getAttribLocation(this.program, "a_color");
 
 		this.positionBuffer = this.gl.createBuffer()!;
-		this.positionLoc = this.gl.getAttribLocation(program, "a_position");
+		this.positionLoc = this.gl.getAttribLocation(this.program, "a_position");
 
-		this.pointSizeLoc = this.gl.getUniformLocation(program, "point_size")!;
+		this.pointSizeLoc = this.gl.getUniformLocation(this.program, "point_size")!;
 
 		this.isDrawingAxisLoc = this.gl.getUniformLocation(
-			program,
+			this.program,
 			"isDrawingAxis",
 		)!;
 
-		this.canvasWidthLoc = this.gl.getUniformLocation(program, "canvasWidth")!;
-		this.canvasHeightLoc = this.gl.getUniformLocation(program, "canvasHeight")!;
+		this.canvasWidthLoc = this.gl.getUniformLocation(
+			this.program,
+			"canvasWidth",
+		)!;
+		this.canvasHeightLoc = this.gl.getUniformLocation(
+			this.program,
+			"canvasHeight",
+		)!;
 		this.gl.uniform1f(this.canvasWidthLoc, this.gl.canvas.clientWidth);
 		this.gl.uniform1f(this.canvasHeightLoc, this.gl.canvas.clientHeight);
 
-		this.modeLoc = this.gl.getUniformLocation(program, "mode")!;
+		this.modeLoc = this.gl.getUniformLocation(this.program, "mode")!;
 		this.gl.uniform1i(this.modeLoc, 0); // "point" mode
 
-		this.colorFactorLoc = this.gl.getUniformLocation(program, "colorFactor")!;
+		this.colorFactorLoc = this.gl.getUniformLocation(
+			this.program,
+			"colorFactor",
+		)!;
 		this.setColorFactor(this.colorFactor);
 
 		if (this.gt === undefined || this.gt.ndim != dataObj.ndim) {
@@ -274,8 +282,12 @@ export class Renderer {
 		this.gl.uniform1f(this.colorFactorLoc!, f);
 	}
 
-	setPointSize(s: number) {
-		this.pointSize = s;
+	get pointSize() {
+		return this.#pointSize;
+	}
+
+	set pointSize(s: number) {
+		this.#pointSize = s;
 		this.gl.uniform1f(this.pointSizeLoc!, s * window.devicePixelRatio);
 	}
 
@@ -349,25 +361,25 @@ export class Renderer {
 			);
 		}
 
-		utils.updateScale_center(
+		utils.updateScaleCenter(
 			points,
 			this.gl.canvas,
 			this.sx_center,
 			this.sy_center,
 			this.sz_center,
 			this.scaleFactor,
-			utils.legendLeft[this.overlay.getDataset()] + 15,
+			utils.legendLeft[this.overlay.dataset] + 15,
 			65,
 		);
 
-		utils.updateScale_span(
+		utils.updateScaleSpan(
 			points,
 			this.gl.canvas,
 			this.sx_span,
 			this.sy_span,
 			this.sz_span,
 			this.scaleFactor,
-			utils.legendLeft[this.overlay.getDataset()] + 15,
+			utils.legendLeft[this.overlay.dataset] + 15,
 			65,
 		);
 
@@ -377,12 +389,14 @@ export class Renderer {
 		} else {
 			transition = (t: number) => 1 - Math.pow(1 - t, 0.5);
 		}
+
 		this.sx = utils.mixScale(
 			this.sx_center,
 			this.sx_span,
 			this.scaleTransitionProgress,
 			transition,
 		);
+
 		this.sy = utils.mixScale(
 			this.sy_center,
 			this.sy_span,
@@ -398,13 +412,13 @@ export class Renderer {
 		let colors: ColorRGBA[] = labels
 			.map((d) => utils.baseColors[d])
 			.concat(utils.createAxisColors(dataObj.ndim))
-			.map((c, i) => [c[0], c[1], c[2], dataObj.alphas[i]]);
+			.map((c, i) => [c.r, c.g, c.b, dataObj.alphas[i]]);
 
 		dataObj.colors = colors;
 
 		this.gl.viewport(0, 0, this.gl.canvas.width, this.gl.canvas.height);
 
-		this.gl.clearColor(...utils.CLEAR_COLOR, 1.0);
+		this.gl.clearColor(...this.#clearColor);
 		this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
 
 		this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.positionBuffer!);
@@ -430,19 +444,19 @@ export class Renderer {
 		this.gl.bufferData(
 			this.gl.ARRAY_BUFFER,
 			new Uint8Array(
-				bgColors.map((c) => [c[0], c[1], c[2], utils.pointAlpha]).flat()
+				bgColors.map((c) => [c.r, c.g, c.b, utils.pointAlpha]).flat(),
 			),
 			this.gl.STATIC_DRAW,
 		);
 
 		this.gl.uniform1i(this.isDrawingAxisLoc!, 0);
-		this.setPointSize(this.pointSize0 * Math.sqrt(this.scaleFactor));
+		this.pointSize = this.pointSize0 * Math.sqrt(this.scaleFactor);
 
 		this.gl.drawArrays(this.gl.POINTS, 0, dataObj.npoint);
 		this.gl.bufferData(
 			this.gl.ARRAY_BUFFER,
 			new Uint8Array(
-				colors.map((c, i) => [c[0], c[1], c[2], dataObj.alphas[i]]).flat()
+				colors.map((c, i) => [c[0], c[1], c[2], dataObj.alphas[i]]).flat(),
 			),
 			this.gl.STATIC_DRAW,
 		);

@@ -6,6 +6,7 @@ specifiers:
   apache-arrow: ^9.0.0
   d3: ^7.6.1
   mathjs: ^11.0.1
+  nanoevents: ^7.0.1
   numeric: ^1.2.6
   typescript: ^4.7.4
   vite: ^3.0.4
@@ -16,6 +17,7 @@ dependencies:
   apache-arrow: 9.0.0
   d3: 7.6.1
   mathjs: 11.0.1
+  nanoevents: 7.0.1
   numeric: 1.2.6
 
 devDependencies:
@@ -894,6 +896,11 @@ packages:
       seedrandom: 3.0.5
       tiny-emitter: 2.1.0
       typed-function: 3.0.0
+    dev: false
+
+  /nanoevents/7.0.1:
+    resolution: {integrity: sha512-o6lpKiCxLeijK4hgsqfR6CNToPyRU3keKyyI6uwuHRvpRTbZ0wXw51WRgyldVugZqoJfkGFrjrIenYH3bfEO3Q==}
+    engines: {node: ^14.0.0 || ^16.0.0 || >=18.0.0}
     dev: false
 
   /nanoid/3.3.4:

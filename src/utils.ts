@@ -2,9 +2,9 @@ import * as d3 from "d3";
 import * as math from "mathjs";
 import numeric from "numeric";
 
-import type { ColorRGB, Scale } from "./types";
+import type { Scale } from "./types";
 
-export const CLEAR_COLOR = [1, 1, 1] as const;
+export const CLEAR_COLOR = d3.rgb(0, 0, 0, 0);
 export let dataset = "mnist";
 export const pointAlpha = 255 * 0.1;
 
@@ -23,7 +23,7 @@ export function mixScale(
 	s0: Scale,
 	s1: Scale,
 	progress: number,
-	func: (x: number) => number,
+	func: (t: number) => number,
 ) {
 	let range0 = s0.range();
 	let range1 = s1.range();
@@ -51,7 +51,7 @@ export function data2canvas(
 	return points;
 }
 
-export function updateScale_span(
+export function updateScaleSpan(
 	points: number[][],
 	canvas: HTMLCanvasElement,
 	sx: d3.ScaleLinear<number, number, never>,
@@ -94,7 +94,7 @@ export function updateScale_span(
 		.range([0, 1]);
 }
 
-export function updateScale_center(
+export function updateScaleCenter(
 	points: number[][],
 	canvas: HTMLCanvasElement,
 	sx: Scale,
@@ -210,7 +210,9 @@ export function createLoadingBanner(sel: d3.Selection<any, any, any, any>) {
 	}
 	repeat();
 
-	return () => { banner.remove() };
+	return () => {
+		banner.remove();
+	};
 }
 
 // TODO: fail when shape isn't tuple... Right now returns `number`.
@@ -265,23 +267,12 @@ export function resizeCanvas(canvas: HTMLCanvasElement) {
 	canvas.style.height = String(canvas.clientHeight);
 }
 
-export const baseColorsHex = [...d3.schemeCategory10];
-
-function hexToRgb(hex: string): ColorRGB {
-	let result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)!;
-	return [
-		parseInt(result[1], 16),
-		parseInt(result[2], 16),
-		parseInt(result[3], 16),
-	];
-}
-
-export const baseColors = baseColorsHex.map(hexToRgb);
+export const baseColors = d3.schemeCategory10.map((c) => d3.rgb(c)!);
 
 export const bgColors = numeric.add(
-	numeric.mul(baseColors, 0.6),
+	numeric.mul(baseColors.map((c) => [c.r, c.g, c.b]), 0.6),
 	0.95 * 255 * 0.4,
-);
+).map((c) => d3.rgb(...c as [number, number, number]));
 
 export function createAxisPoints(ndim: number) {
 	let res = (math.identity(ndim) as math.Matrix).toArray();
@@ -293,7 +284,7 @@ export function createAxisPoints(ndim: number) {
 }
 
 export function createAxisColors(ndim: number) {
-	const gray: ColorRGB = [150, 150, 150];
+	const gray = d3.rgb(150, 150, 150);
 	return Array.from({ length: ndim * 2 }, () => gray);
 }
 
@@ -435,4 +426,12 @@ export function flatten(v: Matrix) {
 	}
 
 	return floats;
+}
+
+export function zip<A, B>(a: A[], b: B[]): [A, B][] {
+	let out: [A, B][] = [];
+	for (let i = 0; i < Math.min(a.length, b.length); i++) {
+		out.push([a[i], b[i]]);
+	}
+	return out;
 }

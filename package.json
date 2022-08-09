@@ -2,7 +2,7 @@
 	"name": "eigen-tour",
 	"version": "0.0.0",
 	"scripts": {
-		"dev": "vite",
+		"dev": "vite --port 3000",
 		"build": "vite build",
 		"preview": "vite preview",
 		"check": "tsc --noEmit",
@@ -16,6 +16,7 @@
 		"apache-arrow": "^9.0.0",
 		"d3": "^7.6.1",
 		"mathjs": "^11.0.1",
+		"nanoevents": "^7.0.1",
 		"numeric": "^1.2.6"
 	},
 	"devDependencies": {
