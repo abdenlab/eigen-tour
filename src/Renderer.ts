@@ -12,6 +12,7 @@ interface Data {
 	dataTensor: number[][][];
 	dmax: number;
 	ndim: number;
+	dimLabels: string[];
 	npoint: number;
 	nepoch: number;
 	alphas: number[];
@@ -134,6 +135,7 @@ export class Renderer {
 			dmax: 1.05 * math.max(
 				math.abs(dataTensor[dataTensor.length - 1]),
 			),
+			dimLabels: fields,
 			ndim,
 			npoint,
 			nepoch,

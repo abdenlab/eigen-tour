@@ -1,5 +1,4 @@
 import * as d3 from "d3";
-import * as math from "mathjs";
 import * as utils from "./utils";
 import { Legend } from "./Legend";
 
@@ -16,12 +15,7 @@ export class Overlay {
 	anchorRadius?: number;
 	annotate?: (renderer: Renderer) => void;
 	legend?: Legend;
-	anchors?: d3.Selection<
-		SVGCircleElement,
-		[number, number],
-		SVGSVGElement,
-		unknown
-	>;
+	anchors?: d3.Selection<SVGGElement, string, SVGSVGElement, unknown>;
 
 	constructor(public renderer: Renderer) {
 		this.figure = d3.select(renderer.gl.canvas.parentNode as HTMLElement);
@@ -217,29 +211,38 @@ export class Overlay {
 	}
 
 	drawAxes() {
-		let svg = this.svg;
-		let ndim = this.renderer.dataObj?.ndim || 10;
-		let renderer = this.renderer;
+		let { svg, renderer } = this;
+		if (!renderer.dataObj) {
+			throw Error("dataObj must be defined");
 
-		let mat = math.zeros(ndim, ndim);
-		let coordinates = (mat as unknown as { _data: [number, number][] })._data;
+		}
 
 		this.anchors = svg.selectAll(".anchor")
-			.data(coordinates)
+			.data(renderer.dataObj.dimLabels)
 			.enter()
-			.append("circle")
+			.append("g")
 			.attr("class", "anchor")
-			.attr("opacity", 0.2);
+			.attr(
+				"transform",
+				() => `translate(${this.renderer.sx(0)}, ${this.renderer.sy(0)})`,
+			);
 
 		this.anchors
-			.attr("cx", ([x, _]) => this.renderer.sx(x))
-			.attr("cy", ([_, y]) => this.renderer.sy(y))
+			.append("circle")
 			.attr("r", this.anchorRadius!)
+			.attr("opacity", 0.2)
 			.attr("stroke", "white")
 			.style("cursor", "pointer");
 
+		this.anchors
+			.append("text")
+			.attr("text-anchor", "middle")
+			.attr("fill", "black")
+			.attr("x", "black")
+			.text((label) => label);
+
 		let self = this;
-		let drag = d3.drag<SVGCircleElement, [number, number], unknown>()
+		let drag = d3.drag<SVGGElement, string, unknown>()
 			.on("start", () => {
 				renderer.shouldPlayGrandTourPrev = renderer.shouldPlayGrandTour;
 				renderer.shouldPlayGrandTour = false;
@@ -280,12 +283,16 @@ export class Overlay {
 
 	redrawAxis() {
 		if (this.renderer.gt === undefined) return;
-		let m = math.identity(this.renderer.dataObj?.ndim ?? 10);
-		let points = (m as unknown as { _data: number[][] })._data;
-		let handlePos = this.renderer.gt.project(points);
-		this.svg.selectAll(".anchor")
-			.attr("cx", (_, i) => this.renderer.sx(handlePos[i][0]))
-			.attr("cy", (_, i) => this.renderer.sy(handlePos[i][1]));
+		let { ndim = 10 } = this.renderer.dataObj ?? {};
+		let identity = Array.from({ length: ndim  }, (_, i) => {
+			return Array.from({ length: ndim }, (_, j) => i === j ? 1 : 0)
+		})
+		let handlePos = this.renderer.gt.project(identity);
+		this.anchors
+			?.attr("transform", (_, i) => {
+				let [x, y] = handlePos[i];
+				return `translate(${this.renderer.sx(x)}, ${this.renderer.sy(y)})`;
+			});
 	}
 
 	initLegend() {

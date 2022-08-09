@@ -134,6 +134,10 @@ export class Legend {
 		}
 	}
 
+	on<E extends keyof LegendEvents>(event: E, callback: LegendEvents[E]) {
+		return this.#emitter.on(event, callback);
+	}
+
 	resize() {
 		let width = this.#root.node()!.clientWidth;
 		let padding = 8;
@@ -182,9 +186,5 @@ export class Legend {
 				.attr("width", rectData.width + 2 * padding)
 				.attr("height", rectData.height + 2 * padding);
 		}
-	}
-
-	on<E extends keyof LegendEvents>(event: E, callback: LegendEvents[E]) {
-		return this.#emitter.on(event, callback);
 	}
 }
