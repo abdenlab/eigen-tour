@@ -1,5 +1,5 @@
 import * as d3 from "d3";
-import EventEmitter from "eventemitter3";
+import { createNanoEvents, Emitter } from "nanoevents";
 import * as utils from "./utils";
 
 interface Margin {
@@ -12,14 +12,15 @@ interface Margin {
 type LegendDatum = [label: string, color: d3.Color];
 
 interface LegendEvents {
-	select: [classes: Set<number>];
-	mouseout: [classes: Set<number>];
+	select: (classes: Set<number>) => void;
+	mouseout: (classes: Set<number>) => void;
 }
 
-export class Legend extends EventEmitter<LegendEvents> {
+export class Legend {
 	#data: LegendDatum[];
 	#margin: Margin;
 	#selected: Set<number>;
+	#emitter: Emitter<LegendEvents>;
 	#root: d3.Selection<SVGSVGElement, unknown, null, undefined>;
 	#mark: d3.Selection<SVGCircleElement, LegendDatum, SVGSVGElement, unknown>;
 	#box: d3.Selection<SVGRectElement, number, SVGSVGElement, unknown>;
@@ -32,7 +33,7 @@ export class Legend extends EventEmitter<LegendEvents> {
 		root: d3.Selection<SVGSVGElement, unknown, null, undefined>,
 		options: { title?: string; margin?: Partial<Margin> },
 	) {
-		super();
+		this.#emitter = createNanoEvents<LegendEvents>();
 		this.#data = data;
 		this.#root = root;
 		this.#selected = new Set();
@@ -61,7 +62,7 @@ export class Legend extends EventEmitter<LegendEvents> {
 				(_, i) =>
 					this.#selected.size === 0 || this.#selected.has(i) ? 1.0 : 0.1,
 			);
-			this.emit("mouseout", this.#selected);
+			this.#emitter.emit("mouseout", this.#selected);
 		};
 
 		this.#mark
@@ -72,7 +73,7 @@ export class Legend extends EventEmitter<LegendEvents> {
 				if (!self.#selected.has(i)) {
 					self.#selected.add(i);
 				}
-				self.emit("select", self.#selected);
+				self.#emitter.emit("select", self.#selected);
 			})
 			.on("mouseout", mouseout)
 			.on("click", function () {
@@ -83,7 +84,7 @@ export class Legend extends EventEmitter<LegendEvents> {
 				} else {
 					self.#selected.add(i);
 				}
-				self.emit("select", self.#selected);
+				self.#emitter.emit("select", self.#selected);
 			});
 
 		this.#text = root.selectAll(".legendText")
@@ -102,7 +103,7 @@ export class Legend extends EventEmitter<LegendEvents> {
 				if (!self.#selected.has(i)) {
 					self.#selected.add(i);
 				}
-				self.emit("select", self.#selected);
+				self.#emitter.emit("select", self.#selected);
 			})
 			.on("mouseout", mouseout)
 			.on("click", function () {
@@ -113,7 +114,7 @@ export class Legend extends EventEmitter<LegendEvents> {
 				} else {
 					self.#selected.add(i);
 				}
-				self.emit("select", self.#selected);
+				self.#emitter.emit("select", self.#selected);
 				self.#mark.attr(
 					"opacity",
 					(_, i) => self.#selected.has(i) ? 1.0 : 0.1,
@@ -187,5 +188,9 @@ export class Legend extends EventEmitter<LegendEvents> {
 				.attr("width", rectData.width + 2 * padding)
 				.attr("height", rectData.height + 2 * padding);
 		}
+	}
+
+	on<E extends keyof LegendEvents>(event: E, callback: LegendEvents[E]) {
+		return this.#emitter.on(event, callback);
 	}
 }

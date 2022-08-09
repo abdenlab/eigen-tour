@@ -15,8 +15,8 @@
 		"@types/numeric": "^1.2.2",
 		"apache-arrow": "^9.0.0",
 		"d3": "^7.6.1",
-		"eventemitter3": "^4.0.7",
 		"mathjs": "^11.0.1",
+		"nanoevents": "^7.0.1",
 		"numeric": "^1.2.6"
 	},
 	"devDependencies": {

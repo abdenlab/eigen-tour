@@ -4,7 +4,6 @@ import * as utils from "./utils";
 import { Legend } from "./Legend";
 
 import type { Renderer } from "./Renderer";
-import type { ColorRGB } from "./types";
 
 export class Overlay {
 	figure: d3.Selection<HTMLElement, unknown, null, undefined>;
@@ -27,10 +26,7 @@ export class Overlay {
 	>;
 
 	constructor(public renderer: Renderer) {
-		this.renderer = renderer;
-
 		this.figure = d3.select(renderer.gl.canvas.parentNode as HTMLElement);
-
 		let self = this;
 		this.epochSlider = this.figure
 			.insert("input", ":first-child")
@@ -142,7 +138,6 @@ export class Overlay {
 					d3.select(this).style("opacity", 0.3);
 				}
 			});
-
 		this.svg = this.figure
 			.insert("svg", ":first-child")
 			.attr("class", "overlay")
