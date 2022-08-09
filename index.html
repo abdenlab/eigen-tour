@@ -9,12 +9,16 @@
 	<link rel="stylesheet" media="screen and (max-width: 1024px)" href="/styles/small-screen.css">
 
 	<script src="https://distill.pub/template.v2.js"></script>
-	<script src="https://unpkg.com/numeric@1.2.6/numeric-1.2.6.js"></script>
 </head>
 
 <body>
 	<d-figure class="teaser">
 		<canvas id="teaser"></canvas>
 	</d-figure>
+	<script type="module">
+		// https://github.com/sloisel/numeric/issues/84
+		import numeric from "numeric";
+		globalThis.numeric = numeric;
+	</script>
 	<script src="/src/index.ts" type="module"></script>
 </body>

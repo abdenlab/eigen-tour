@@ -429,5 +429,9 @@ export function flatten(v: Matrix) {
 }
 
 export function zip<A, B>(a: A[], b: B[]): [A, B][] {
-	return a.map((ai, i) => [ai, b[i]]);
+	let out: [A, B][] = [];
+	for (let i = 0; i < Math.min(a.length, b.length); i++) {
+		out.push([a[i], b[i]]);
+	}
+	return out;
 }

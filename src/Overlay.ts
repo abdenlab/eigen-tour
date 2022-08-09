@@ -13,11 +13,9 @@ export class Overlay {
 	grandtourButton: d3.Selection<HTMLElement, unknown, null, undefined>;
 	epochIndicator: d3.Selection<SVGTextElement, unknown, null, undefined>;
 	svg: d3.Selection<SVGSVGElement, unknown, null, undefined>;
-
 	anchorRadius?: number;
 	annotate?: (renderer: Renderer) => void;
 	legend?: Legend;
-
 	anchors?: d3.Selection<
 		SVGCircleElement,
 		[number, number],
@@ -28,6 +26,7 @@ export class Overlay {
 	constructor(public renderer: Renderer) {
 		this.figure = d3.select(renderer.gl.canvas.parentNode as HTMLElement);
 		let self = this;
+
 		this.epochSlider = this.figure
 			.insert("input", ":first-child")
 			.attr("type", "range")
@@ -209,9 +208,7 @@ export class Overlay {
 	}
 
 	init() {
-		let labels = utils.getLabelNames(false, this.dataset);
-		let colors = utils.baseColors.slice(0, labels.length);
-		this.initLegend(utils.zip(labels, colors));
+		this.initLegend();
 		this.resize();
 		this.drawAxes();
 		if (this.annotate !== undefined) {
@@ -291,40 +288,38 @@ export class Overlay {
 			.attr("cy", (_, i) => this.renderer.sy(handlePos[i][1]));
 	}
 
-	initLegend(data: [string, d3.Color][]) {
-		let legend = new Legend(data, this.svg, {
+	initLegend() {
+		let data = utils.zip(
+			utils.getLabelNames(false, this.dataset),
+			utils.baseColors,
+		);
+		this.legend = new Legend(data, {
+			root: this.svg,
 			title: utils.legendTitle[this.dataset],
 			margin: {
 				left: utils.legendLeft[this.dataset],
 				right: utils.legendRight[this.dataset],
 			},
 		});
-		legend.on("select", (classes) => {
+		this.legend.on("select", (classes) => {
 			if (!this.renderer.dataObj) return;
-			for (let i = 0; i < this.renderer.dataObj.npoint; i++) {
-				if (classes.has(this.renderer.dataObj.labels[i])) {
-					this.renderer.dataObj.alphas[i] = 255;
-				} else {
-					this.renderer.dataObj.alphas[i] = 0;
-				}
+			let { npoint, labels, alphas } = this.renderer.dataObj;
+			for (let i = 0; i < npoint; i++) {
+				alphas[i] = classes.has(labels[i]) ? 255 : 0;
 			}
 		});
-		legend.on("mouseout", (classes) => {
+		this.legend.on("mouseout", (classes) => {
 			if (!this.renderer.dataObj) return;
-			if (classes.size == 0) {
-				for (let i = 0; i < this.renderer.dataObj.npoint; i++) {
-					this.renderer.dataObj.alphas[i] = 255;
+			let { npoint, labels, alphas } = this.renderer.dataObj;
+			if (classes.size === 0) {
+				for (let i = 0; i < npoint; i++) {
+					alphas[i] = 255;
 				}
-			} else {
-				for (let i = 0; i < this.renderer.dataObj.npoint; i++) {
-					if (classes.has(this.renderer.dataObj.labels[i])) {
-						this.renderer.dataObj.alphas[i] = 255;
-					} else {
-						this.renderer.dataObj.alphas[i] = 0;
-					}
-				}
+				return;
+			}
+			for (let i = 0; i < npoint; i++) {
+				alphas[i] = classes.has(labels[i]) ? 255 : 0;
 			}
 		});
-		this.legend = legend;
 	}
 }

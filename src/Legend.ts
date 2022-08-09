@@ -1,5 +1,5 @@
 import * as d3 from "d3";
-import { createNanoEvents, Emitter } from "nanoevents";
+import * as nanoevents from "nanoevents";
 import * as utils from "./utils";
 
 interface Margin {
@@ -19,8 +19,7 @@ interface LegendEvents {
 export class Legend {
 	#data: LegendDatum[];
 	#margin: Margin;
-	#selected: Set<number>;
-	#emitter: Emitter<LegendEvents>;
+	#emitter: nanoevents.Emitter<LegendEvents>;
 	#root: d3.Selection<SVGSVGElement, unknown, null, undefined>;
 	#mark: d3.Selection<SVGCircleElement, LegendDatum, SVGSVGElement, unknown>;
 	#box: d3.Selection<SVGRectElement, number, SVGSVGElement, unknown>;
@@ -30,16 +29,19 @@ export class Legend {
 
 	constructor(
 		data: LegendDatum[],
-		root: d3.Selection<SVGSVGElement, unknown, null, undefined>,
-		options: { title?: string; margin?: Partial<Margin> },
+		options: {
+			root: d3.Selection<SVGSVGElement, unknown, null, undefined>,
+			title?: string;
+			margin?: Partial<Margin>;
+		},
 	) {
-		this.#emitter = createNanoEvents<LegendEvents>();
 		this.#data = data;
-		this.#root = root;
-		this.#selected = new Set();
+		this.#root = options.root;
 		this.#margin = { top: 20, bottom: 0, left: 0, right: 0, ...options.margin };
+		this.#emitter = nanoevents.createNanoEvents<LegendEvents>();
+		let selected = new Set<number>;
 
-		this.#box = root.selectAll(".legendBox")
+		this.#box = this.#root.selectAll(".legendBox")
 			.data([0])
 			.enter()
 			.append("rect")
@@ -48,46 +50,57 @@ export class Legend {
 			.attr("stroke", "#c1c1c1")
 			.attr("stroke-width", 1);
 
-		let self = this;
-
-		this.#mark = root.selectAll(".legendMark")
+		this.#mark = this.#root.selectAll(".legendMark")
 			.data(this.#data)
 			.enter()
 			.append("circle")
 			.attr("class", "legendMark");
 
-		const mouseout = () => {
+		let restoreAlpha = () => {
 			this.#mark.attr(
 				"opacity",
-				(_, i) =>
-					this.#selected.size === 0 || this.#selected.has(i) ? 1.0 : 0.1,
+				(_, i) => selected.size === 0 || selected.has(i) ? 1.0 : 0.1,
 			);
-			this.#emitter.emit("mouseout", this.#selected);
+			this.#emitter.emit("mouseout", selected);
 		};
 
-		this.#mark
-			.attr("fill", (d) => d[1].formatRgb())
-			.on("mouseover", function () {
-				const e = self.#mark!.nodes();
+		let select = <Element extends d3.BaseType>(sel: d3.Selection<Element, any, any, any>) => {
+			let emitter = this.#emitter;
+			return function (this: Element) {
+				const e = sel!.nodes();
 				const i = e.indexOf(this);
-				if (!self.#selected.has(i)) {
-					self.#selected.add(i);
+				let classes = new Set(selected);
+				if (!classes.has(i)) {
+					classes.add(i);
 				}
-				self.#emitter.emit("select", self.#selected);
-			})
-			.on("mouseout", mouseout)
-			.on("click", function () {
-				const e = self.#mark!.nodes();
-				const i = e.indexOf(this);
-				if (self.#selected.has(i)) {
-					self.#selected.delete(i);
-				} else {
-					self.#selected.add(i);
-				}
-				self.#emitter.emit("select", self.#selected);
-			});
+				emitter.emit("select", classes);
+			}
+		}
 
-		this.#text = root.selectAll(".legendText")
+		let click = <Element extends d3.BaseType>(sel: d3.Selection<Element, any, any, any>) => {
+			let emitter = this.#emitter;
+			return function (this: Element) {
+				const e = sel!.nodes();
+				const i = e.indexOf(this);
+				if (selected.has(i)) {
+					selected.delete(i);
+				} else {
+					selected.add(i);
+				}
+				emitter.emit("select", selected);
+				if (selected.size == data.length) {
+					selected.clear();
+				}
+			}
+		}
+
+		this.#mark
+			.attr("fill", ([_, color]) => color.formatRgb())
+			.on("mouseover", select(this.#mark))
+			.on("mouseout", restoreAlpha)
+			.on("click", click(this.#mark));
+
+		this.#text = this.#root.selectAll(".legendText")
 			.data(this.#data)
 			.enter()
 			.append("text")
@@ -96,40 +109,21 @@ export class Legend {
 		this.#text
 			.attr("text-anchor", "start")
 			.attr("fill", "#333")
-			.text((d) => d[0])
-			.on("mouseover", function () {
-				const e = self.#text!.nodes();
-				const i = e.indexOf(this);
-				if (!self.#selected.has(i)) {
-					self.#selected.add(i);
-				}
-				self.#emitter.emit("select", self.#selected);
-			})
-			.on("mouseout", mouseout)
-			.on("click", function () {
-				const e = self.#text!.nodes();
-				const i = e.indexOf(this);
-				if (self.#selected.has(i)) {
-					self.#selected.delete(i);
-				} else {
-					self.#selected.add(i);
-				}
-				self.#emitter.emit("select", self.#selected);
-				self.#mark.attr(
-					"opacity",
-					(_, i) => self.#selected.has(i) ? 1.0 : 0.1,
-				);
-			});
+			.text(([label, _]) => label)
+			.on("mouseover", select(this.#text))
+			.on("mouseout", restoreAlpha)
+			.on("click", click(this.#text));
 
 		if (options.title && options.title !== "") {
-			this.#titleBg = root.selectAll(".legendTitleBg")
+
+			this.#titleBg = this.#root.selectAll(".legendTitleBg")
 				.data([0])
 				.enter()
 				.append("rect")
 				.attr("class", "legendTitleBg")
 				.attr("fill", utils.CLEAR_COLOR.formatRgb());
 
-			this.#title = root.selectAll(".legendTitle")
+			this.#title = this.#root.selectAll(".legendTitle")
 				.data([options.title])
 				.enter()
 				.append("text")
