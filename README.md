@@ -9,6 +9,10 @@ pnpm install
 pnpm dev
 ```
 
+## data
+
+Preparing a dataset for the visualization requires serializing a table to [Arrow IPC Format](https://arrow.apache.org/docs/python/ipc.html).
+
 ## related
 
 - [The Grand Tour: A Tool for Viewing Multidimensional Data](https://doi.org/10.1137/0906011)
