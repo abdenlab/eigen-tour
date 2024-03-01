@@ -28,7 +28,7 @@ export class Overlay {
 			.attr("min", renderer.epochs[0])
 			.attr("max", renderer.epochs[renderer.epochs.length - 1])
 			.attr("value", renderer.epochIndex)
-			.on("input", function () {
+			.on("input", function() {
 				let value = d3.select(this).property("value");
 				renderer.shouldAutoNextEpoch = false;
 				renderer.setEpochIndex(parseInt(value));
@@ -42,15 +42,15 @@ export class Overlay {
 			.attr(
 				"class",
 				"play-button tooltip fa " +
-					(renderer.shouldAutoNextEpoch ? "fa-pause" : "fa-play"),
+				(renderer.shouldAutoNextEpoch ? "fa-pause" : "fa-play"),
 			)
-			.on("mouseover", function () {
+			.on("mouseover", function() {
 				d3.select(this).style("opacity", 1);
 			})
-			.on("mouseout", function () {
+			.on("mouseout", function() {
 				d3.select(this).style("opacity", 0.7);
 			})
-			.on("click", function () {
+			.on("click", function() {
 				renderer.shouldAutoNextEpoch = !renderer.shouldAutoNextEpoch;
 				if (renderer.shouldAutoNextEpoch) {
 					d3.select(this).attr("class", "tooltip play-button fa fa-pause");
@@ -72,13 +72,13 @@ export class Overlay {
 		this.fullScreenButton = this.figure
 			.insert("i", ":first-child")
 			.attr("class", "tooltip teaser-fullscreenButton fas fa-expand-arrows-alt")
-			.on("mouseover", function () {
+			.on("mouseover", function() {
 				d3.select(this).style("opacity", 0.7);
 			})
-			.on("mouseout", function () {
+			.on("mouseout", function() {
 				d3.select(this).style("opacity", renderer.isFullScreen ? 0.7 : 0.3);
 			})
-			.on("click", function () {
+			.on("click", function() {
 				renderer.setFullScreen(!renderer.isFullScreen);
 				d3.select(this).style("opacity", renderer.isFullScreen ? 0.7 : 0.3);
 			});
@@ -93,10 +93,10 @@ export class Overlay {
 			.attr("width", 32)
 			.attr("height", 32)
 			.style("opacity", renderer.shouldPlayGrandTour ? 0.7 : 0.3)
-			.on("mouseover", function () {
+			.on("mouseover", function() {
 				d3.select(this).style("opacity", 0.7);
 			})
-			.on("mouseout", function () {
+			.on("mouseout", function() {
 				d3.select(this).style(
 					"opacity",
 					renderer.shouldPlayGrandTour ? 0.7 : 0.3,
@@ -108,7 +108,7 @@ export class Overlay {
 			.text("Pause Grand Tour");
 
 		this.grandtourButton
-			.on("click", function () {
+			.on("click", function() {
 				renderer.shouldPlayGrandTour = !renderer.shouldPlayGrandTour;
 				renderer.shouldCentralizeOrigin = renderer.shouldPlayGrandTour;
 
@@ -136,7 +136,7 @@ export class Overlay {
 			.attr("class", "overlay")
 			.attr("width", this.width)
 			.attr("height", this.height)
-			.on("dblclick", function () {
+			.on("dblclick", function() {
 				// renderer.shouldPlayGrandTour = !renderer.shouldPlayGrandTour;
 			})
 			.on("mousemove", () => {
@@ -248,7 +248,7 @@ export class Overlay {
 				renderer.shouldPlayGrandTour = false;
 				renderer.isDragging = true;
 			})
-			.on("drag", function (event) {
+			.on("drag", function(event) {
 				if (!renderer.gt) return;
 				let dx = renderer.sx.invert(event.dx) - renderer.sx.invert(0);
 				let dy = renderer.sy.invert(event.dy) - renderer.sy.invert(0);
@@ -260,7 +260,7 @@ export class Overlay {
 				renderer.gt.setMatrix(matrix);
 				self.redrawAxis();
 			})
-			.on("end", function () {
+			.on("end", function() {
 				renderer.isDragging = false;
 				renderer.shouldPlayGrandTour = renderer.shouldPlayGrandTourPrev ??
 					false;
@@ -284,7 +284,7 @@ export class Overlay {
 	redrawAxis() {
 		if (this.renderer.gt === undefined) return;
 		let { ndim = 10 } = this.renderer.dataObj ?? {};
-		let identity = Array.from({ length: ndim  }, (_, i) => {
+		let identity = Array.from({ length: ndim }, (_, i) => {
 			return Array.from({ length: ndim }, (_, j) => i === j ? 1 : 0)
 		})
 		let handlePos = this.renderer.gt.project(identity);

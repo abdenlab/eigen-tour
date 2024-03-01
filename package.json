@@ -2,15 +2,14 @@
 	"name": "eigen-tour",
 	"version": "0.0.0",
 	"scripts": {
-		"dev": "vite --port 3000",
-		"build": "vite build",
-		"preview": "vite preview",
-		"check": "tsc --noEmit",
+		"dev": "npm run build -- --sourcemap=inline --watch",
+		"build": "esbuild js/widget.ts --minify --format=esm --bundle --outdir=src/eigen_tour/static",
 		"fmt": "deno fmt --ignore=dist,node_modules --options-use-tabs"
 	},
 	"author": "Trevor Manz",
 	"license": "MIT",
 	"dependencies": {
+		"@anywidget/types": "^0.1.5",
 		"@types/d3": "^7.4.0",
 		"@types/numeric": "^1.2.2",
 		"apache-arrow": "^9.0.0",
@@ -20,7 +19,7 @@
 		"numeric": "^1.2.6"
 	},
 	"devDependencies": {
-		"typescript": "^4.7.4",
-		"vite": "^3.0.4"
+		"esbuild": "^0.20.1",
+		"typescript": "^5.3.3"
 	}
 }

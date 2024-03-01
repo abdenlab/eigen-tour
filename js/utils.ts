@@ -1,6 +1,5 @@
 import * as d3 from "d3";
 import * as math from "mathjs";
-import numeric from "numeric";
 
 import type { Scale } from "./types";
 
@@ -434,4 +433,15 @@ export function zip<A, B>(a: A[], b: B[]): [A, B][] {
 		out.push([a[i], b[i]]);
 	}
 	return out;
+}
+
+export function loadScript(url: string): Promise<void> {
+	return new Promise((resolve, reject) => {
+		let script = document.createElement("script");
+		script.type = "text/javascript";
+		script.src = url;
+		script.onload = () => resolve();
+		script.onerror = (err) => reject(err);
+		document.head.appendChild(script);
+	});
 }

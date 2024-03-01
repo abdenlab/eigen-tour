@@ -1,4 +1,3 @@
-
 d-title p{
   border-bottom: solid 1px rgba(0, 0, 0, 0.1);
 }
@@ -334,7 +333,6 @@ canvas.smallmultiple0{
 }
 
 
-
 .overlay{
     position: absolute;
 }
@@ -488,3 +486,4 @@ figcaption > span:before{
   background: white;
   opacity: 0.8;
 }
+

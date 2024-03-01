@@ -4,9 +4,22 @@ visualizing (normalized) eigenvectors with the [Grand Tour](https://doi.org/10.1
 
 ## development
 
+Create a python dev envrionment
+
+```sh
+hatch shell
+```
+
+Run the JavaScript development server:
 ```
 pnpm install
 pnpm dev
+```
+
+Open JupyterLab:
+
+```sh
+ANYWIDGET_HMR=1 juptyer lab
 ```
 
 ## data
