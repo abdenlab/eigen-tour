@@ -5,7 +5,7 @@ import anywidget
 import traitlets
 
 try:
-    __version__ = importlib.metadata.version("ipyfoo")
+    __version__ = importlib.metadata.version("eigen_tour")
 except importlib.metadata.PackageNotFoundError:
     __version__ = "unknown"
 
