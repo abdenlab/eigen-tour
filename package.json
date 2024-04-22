@@ -15,8 +15,7 @@
 		"apache-arrow": "^9.0.0",
 		"d3": "^7.6.1",
 		"mathjs": "^11.0.1",
-		"nanoevents": "^7.0.1",
-		"numeric": "^1.2.6"
+		"nanoevents": "^7.0.1"
 	},
 	"devDependencies": {
 		"esbuild": "^0.20.1",
