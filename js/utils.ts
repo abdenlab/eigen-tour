@@ -2,6 +2,7 @@ import * as d3 from "d3";
 import * as math from "mathjs";
 
 import type { Scale } from "./types";
+import numeric from "./lib/numeric";
 
 export const CLEAR_COLOR = d3.rgb(0, 0, 0, 0);
 export let dataset = "mnist";
