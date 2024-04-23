@@ -10,7 +10,7 @@ Create a python dev envrionment
 hatch shell
 ```
 
-Run the JavaScript development server:
+Run the JavaScript bundler:
 ```
 pnpm install
 pnpm dev
