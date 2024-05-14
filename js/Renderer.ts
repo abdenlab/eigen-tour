@@ -18,6 +18,7 @@ interface Data {
 	alphas: number[];
 	points?: number[][];
 	colors?: ColorRGBA[];
+	hexColors: string[];
 }
 
 interface RendererOptions {
@@ -84,15 +85,17 @@ export class Renderer {
 	constructor(
 		public gl: WebGLRenderingContext,
 		public program: WebGLProgram,
+		dataset: string,
 		opts: Partial<RendererOptions> = {},
 	) {
-		this.id = gl.canvas.id;
+		let canvas = gl.canvas as HTMLCanvasElement;
+		this.id = canvas.id;
 		this.epochs = opts.epochs ?? [0];
 		this.epochIndex = opts.epochIndex ?? this.epochs[0];
 		this.shouldAutoNextEpoch = opts.shouldAutoNextEpoch ?? true;
 		this.shouldPlayGrandTour = opts.shouldPlayGrandTour ?? true;
 		this.pointSize0 = this.#pointSize = opts.pointSize ?? 6.0;
-		this.overlay = new Overlay(this);
+		this.overlay = new Overlay(this, dataset);
 
 		this.sx_span = d3.scaleLinear();
 		this.sy_span = d3.scaleLinear();
@@ -105,53 +108,69 @@ export class Renderer {
 		this.sz = this.sz_center;
 	}
 
-	async initData(buffer: ArrayBuffer) {
+	async initData(
+		buffer: ArrayBuffer, 
+		axisFields: string[], 
+		labelField: string, 
+		labelColors?: Object,
+	) {
+		// Load the table
 		let table = arrow.tableFromIPC(buffer);
-		let ndim = 5;
-		let nepoch = 1;
+		let ndim = axisFields.length;
 
-		let labels = [];
-		let arr = [];
+		// Categories and colors
+		let labelColumn = table.getChild(labelField);
+		let categories: string[] = labelColumn ? Array.from(new Set(labelColumn.toArray())) : [];
+		categories = categories.sort();
+		let cat_to_int = Object.fromEntries(categories.map((name, i) => [name, i]));
 
-		let fields = d3.range(ndim).map((i) => "E" + i);
-		let labelMapping = Object.fromEntries(
-			["A0", "A1", "B0", "B1", "B2"].map((name, i) => [name, i]),
-		);
-
-		for (let row of utils.iterN(table, 10)) {
-			labels.push(labelMapping[row.name]);
-			for (let field of fields) arr.push(row[field]);
+		let hexColors;
+		if (labelColors) {
+			categories = Object.keys(labelColors);
+			hexColors = Object.values(labelColors);
+		} else {
+			hexColors = d3.schemeCategory10;
 		}
+		let rgbColors = hexColors.map((c) => d3.rgb(c)!);
+		let legendData = utils.zip(categories, rgbColors);
 
-		let npoint = labels.length;
-		let shape: [number, number, number] = [nepoch, npoint, ndim];
-		let dataTensor = utils.reshape(new Float32Array(arr), shape);
+		// Point data
+		let labels = [];
+		let coords = [];
+		for (let row of utils.iterN(table, 10)) {
+			labels.push(cat_to_int[row[labelField]]);
+			for (let field of axisFields) coords.push(row[field]);
+		}
+		let nepoch = 1;
+		let n_points = labels.length;
+		let shape: [number, number, number] = [nepoch, n_points, ndim];
+		let dataTensor = utils.reshape(new Float32Array(coords), shape);
 
-		this.shouldRecalculateColorRect = true;
-
+		// Store the data
 		this.dataObj = {
 			labels,
 			dataTensor,
 			dmax: 1.05 * math.max(
 				math.abs(dataTensor[dataTensor.length - 1]),
 			),
-			dimLabels: fields,
+			dimLabels: axisFields,
 			ndim,
-			npoint,
+			npoint: n_points,
 			nepoch,
-			alphas: Array.from({ length: npoint + 5 * npoint }, () => 255),
+			alphas: Array.from({ length: n_points + 5 * n_points }, () => 255),
+			hexColors
 		};
 
+		// Initialize the display and overlay
+		this.shouldRecalculateColorRect = true;
 		this.initGL(this.dataObj);
-
 		if (this.isPlaying === undefined) {
 			// renderer.isPlaying===undefined indicates the renderer on init
 			// otherwise it is reloading other dataset
 			this.isPlaying = true;
 			this.play();
-			this.overlay.init();
+			this.overlay.init(legendData);
 		}
-
 		if (
 			(this.animId == null || this.shouldRender == false)
 		) {
@@ -163,7 +182,7 @@ export class Renderer {
 
 	setFullScreen(shouldSet: boolean) {
 		this.isFullScreen = shouldSet;
-		let canvas = this.gl.canvas;
+		let canvas = this.gl.canvas as HTMLCanvasElement;
 
 		d3.select(canvas.parentNode as HTMLElement)
 			.classed("fullscreen", shouldSet);
@@ -187,7 +206,8 @@ export class Renderer {
 	}
 
 	initGL(dataObj: Data) {
-		utils.resizeCanvas(this.gl.canvas);
+		let canvas = this.gl.canvas as HTMLCanvasElement;
+		utils.resizeCanvas(canvas);
 
 		this.gl.viewport(0, 0, this.gl.canvas.width, this.gl.canvas.height);
 		this.gl.clearColor(...this.#clearColor);
@@ -225,8 +245,8 @@ export class Renderer {
 			this.program,
 			"canvasHeight",
 		)!;
-		this.gl.uniform1f(this.canvasWidthLoc, this.gl.canvas.clientWidth);
-		this.gl.uniform1f(this.canvasHeightLoc, this.gl.canvas.clientHeight);
+		this.gl.uniform1f(this.canvasWidthLoc, canvas.clientWidth);
+		this.gl.uniform1f(this.canvasHeightLoc, canvas.clientHeight);
 
 		this.modeLoc = this.gl.getUniformLocation(this.program, "mode")!;
 		this.gl.uniform1i(this.modeLoc, 0); // "point" mode
@@ -342,6 +362,7 @@ export class Renderer {
 	render(dt: number) {
 		if (!this.dataObj || !this.gt) return;
 
+		let canvas = this.gl.canvas as HTMLCanvasElement;
 		let dataObj = this.dataObj;
 		let data = this.dataObj.dataTensor[this.epochIndex];
 		let labels = this.dataObj.labels;
@@ -365,23 +386,23 @@ export class Renderer {
 
 		utils.updateScaleCenter(
 			points,
-			this.gl.canvas,
+			canvas,
 			this.sx_center,
 			this.sy_center,
 			this.sz_center,
 			this.scaleFactor,
-			utils.legendLeft[this.overlay.dataset] + 15,
+			utils.legendLeft[this.overlay.dataset as keyof typeof utils.legendLeft] + 15,
 			65,
 		);
 
 		utils.updateScaleSpan(
 			points,
-			this.gl.canvas,
+			canvas,
 			this.sx_span,
 			this.sy_span,
 			this.sz_span,
 			this.scaleFactor,
-			utils.legendLeft[this.overlay.dataset] + 15,
+			utils.legendLeft[this.overlay.dataset as keyof typeof utils.legendLeft] + 15,
 			65,
 		);
 
@@ -410,9 +431,10 @@ export class Renderer {
 
 		dataObj.points = points;
 
-		let bgColors = labels.map((d) => utils.bgColors[d]);
+		let rgbColors = dataObj.hexColors.map((c) => d3.rgb(c)!);
+		let modifiedColors = utils.modifyColors(rgbColors);
 		let colors: ColorRGBA[] = labels
-			.map((d) => utils.baseColors[d])
+			.map((i) => rgbColors[i])
 			.concat(utils.createAxisColors(dataObj.ndim))
 			.map((c, i) => [c.r, c.g, c.b, dataObj.alphas[i]]);
 
@@ -446,7 +468,7 @@ export class Renderer {
 		this.gl.bufferData(
 			this.gl.ARRAY_BUFFER,
 			new Uint8Array(
-				bgColors.map((c) => [c.r, c.g, c.b, utils.pointAlpha]).flat(),
+				modifiedColors.map((c: { r: number; g: number; b: number; }) => [c.r, c.g, c.b, utils.pointAlpha]).flat(),
 			),
 			this.gl.STATIC_DRAW,
 		);

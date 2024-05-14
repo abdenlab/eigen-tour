@@ -156,22 +156,22 @@ export function embed<T>(matrix: T[][], canvas: T[][]) {
 	return canvas;
 }
 
-export function getDataset() {
-	return dataset;
-}
+// export function getDataset() {
+// 	return dataset;
+// }
 
-export function getLabelNames(_adversarial = false, dataset?: string) {
-	if (dataset === undefined) {
-		dataset = getDataset();
-	}
-	let res;
-	if (dataset == "mnist") {
-		res = ["A0", "A1", "B0", "B1", "B2"];
-	} else {
-		throw new Error("Unrecognized dataset " + dataset);
-	}
-	return res;
-}
+// export function getLabelNames(_adversarial = false, dataset?: string) {
+// 	if (dataset === undefined) {
+// 		dataset = getDataset();
+// 	}
+// 	let res;
+// 	if (dataset == "mnist") {
+// 		res = ["A0", "A1", "B0", "B1", "B2"];
+// 	} else {
+// 		throw new Error("Unrecognized dataset " + dataset);
+// 	}
+// 	return res;
+// }
 
 export function initGL(canvas: HTMLCanvasElement, fs: string, vs: string) {
 	let gl = canvas.getContext("webgl", { premultipliedAlpha: false })!;
@@ -272,7 +272,19 @@ export const baseColors = d3.schemeCategory10.map((c) => d3.rgb(c)!);
 export const bgColors = numeric.add(
 	numeric.mul(baseColors.map((c) => [c.r, c.g, c.b]), 0.6),
 	0.95 * 255 * 0.4,
-).map((c) => d3.rgb(...c as [number, number, number]));
+).map((c: [number, number, number]) => d3.rgb(...c as [number, number, number]));
+
+export function modifyColors(colorList: d3.RGBColor[]) {
+	// multiply each RGB channel by 0.6, 
+	// then add 0.4 * (0.95 * 255)
+	return numeric.add(
+		numeric.mul(
+			colorList.map((c) => [c.r, c.g, c.b]),
+			0.6,
+		),
+		0.95 * 255 * 0.4,
+	);
+}
 
 export function createAxisPoints(ndim: number) {
 	let res = (math.identity(ndim) as math.Matrix).toArray();
@@ -306,7 +318,6 @@ export function orthogonalize<M extends number[][] | number[][][]>(
 	// make row vectors in matrix pairwise orthogonal;
 
 	function proj(u: M[number], v: M[number]): M[number] {
-		// @ts-expect-error
 		return numeric.mul(numeric.dot(u, v) / numeric.dot(u, u), u);
 	}
 
@@ -314,7 +325,6 @@ export function orthogonalize<M extends number[][] | number[][][]>(
 		if (numeric.norm2(v) <= 0) {
 			return v;
 		} else {
-			// @ts-expect-error
 			return numeric.div(v, numeric.norm2(v) / unitlength);
 		}
 	}
@@ -328,7 +338,6 @@ export function orthogonalize<M extends number[][] | number[][][]>(
 	matrix[0] = normalize(matrix[0]);
 	for (let i = 1; i < matrix.length; i++) {
 		for (let j = 0; j < i; j++) {
-			// @ts-expect-error
 			matrix[i] = numeric.sub(matrix[i], proj(matrix[j], matrix[i]));
 		}
 		matrix[i] = normalize(matrix[i]);
@@ -436,13 +445,13 @@ export function zip<A, B>(a: A[], b: B[]): [A, B][] {
 	return out;
 }
 
-export function loadScript(url: string): Promise<void> {
-	return new Promise((resolve, reject) => {
-		let script = document.createElement("script");
-		script.type = "text/javascript";
-		script.src = url;
-		script.onload = () => resolve();
-		script.onerror = (err) => reject(err);
-		document.head.appendChild(script);
-	});
-}
+// export function loadScript(url: string): Promise<void> {
+// 	return new Promise((resolve, reject) => {
+// 		let script = document.createElement("script");
+// 		script.type = "text/javascript";
+// 		script.src = url;
+// 		script.onload = () => resolve();
+// 		script.onerror = (err) => reject(err);
+// 		document.head.appendChild(script);
+// 	});
+// }
