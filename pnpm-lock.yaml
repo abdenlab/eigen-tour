@@ -1,13 +1,13 @@
 lockfileVersion: '6.0'
 
 settings:
-  autoInstallPeers: true
+  autoInstallPeers: false
   excludeLinksFromLockfile: false
 
 dependencies:
   '@anywidget/types':
     specifier: ^0.1.5
-    version: 0.1.5(react@18.2.0)
+    version: 0.1.5
   '@types/d3':
     specifier: ^7.4.0
     version: 7.4.0
@@ -26,9 +26,6 @@ dependencies:
   nanoevents:
     specifier: ^7.0.1
     version: 7.0.1
-  numeric:
-    specifier: ^1.2.6
-    version: 1.2.6
 
 devDependencies:
   esbuild:
@@ -40,10 +37,10 @@ devDependencies:
 
 packages:
 
-  /@anywidget/types@0.1.5(react@18.2.0):
+  /@anywidget/types@0.1.5:
     resolution: {integrity: sha512-WuZrR/g+HyZ0/tYZSsQfdEdz39EF8khBkERAqQUy7U15LyTUWu5wkNnFB9NKySK+9OQS7y3vyTL6MbwqytZdOg==}
     dependencies:
-      '@jupyter-widgets/base': 6.0.7(react@18.2.0)
+      '@jupyter-widgets/base': 6.0.7
     transitivePeerDependencies:
       - bufferutil
       - react
@@ -264,10 +261,10 @@ packages:
     dev: true
     optional: true
 
-  /@jupyter-widgets/base@6.0.7(react@18.2.0):
+  /@jupyter-widgets/base@6.0.7:
     resolution: {integrity: sha512-a4VoUtL+90mGH6VE6m78D2J9aNy9Q1JrPP91HAQTXBysVpCLTtq0Ie8EupN5Su7V8eFwl/wz91J2m0p4jY4h0g==}
     dependencies:
-      '@jupyterlab/services': 7.1.2(react@18.2.0)
+      '@jupyterlab/services': 7.1.2
       '@lumino/coreutils': 2.1.2
       '@lumino/messaging': 1.10.3
       '@lumino/widgets': 2.3.1
@@ -310,13 +307,13 @@ packages:
       '@lumino/coreutils': 2.1.2
     dev: false
 
-  /@jupyterlab/services@7.1.2(react@18.2.0):
+  /@jupyterlab/services@7.1.2:
     resolution: {integrity: sha512-DFgoc2GN0z20T/cwl7D1xBk3BwkojbsyHXHGv+TKQQmZLEf+tusWiepiUlAvsNDMNkVZpS8rD8gaj0CzCdKsFw==}
     dependencies:
       '@jupyter/ydoc': 1.1.1
       '@jupyterlab/coreutils': 6.1.2
       '@jupyterlab/nbformat': 4.1.2
-      '@jupyterlab/settingregistry': 4.1.2(react@18.2.0)
+      '@jupyterlab/settingregistry': 4.1.2
       '@jupyterlab/statedb': 4.1.2
       '@lumino/coreutils': 2.1.2
       '@lumino/disposable': 2.1.2
@@ -330,7 +327,7 @@ packages:
       - utf-8-validate
     dev: false
 
-  /@jupyterlab/settingregistry@4.1.2(react@18.2.0):
+  /@jupyterlab/settingregistry@4.1.2:
     resolution: {integrity: sha512-v0lBXo7zV+O9GpuY44RMkJz5rD8PeG/me0HP+UzD6gOaYEOPzdMgkY0n02hY0DDWCe47GLBlHuPi7nOZCqGTMg==}
     peerDependencies:
       react: '>=16'
@@ -341,10 +338,9 @@ packages:
       '@lumino/coreutils': 2.1.2
       '@lumino/disposable': 2.1.2
       '@lumino/signaling': 2.1.2
-      '@rjsf/utils': 5.17.1(react@18.2.0)
+      '@rjsf/utils': 5.17.1
       ajv: 8.12.0
       json5: 2.2.3
-      react: 18.2.0
     dev: false
 
   /@jupyterlab/statedb@4.1.2:
@@ -469,7 +465,7 @@ packages:
       '@lumino/virtualdom': 2.0.1
     dev: false
 
-  /@rjsf/utils@5.17.1(react@18.2.0):
+  /@rjsf/utils@5.17.1:
     resolution: {integrity: sha512-q1Igz/cuM2hi+jiXFkoaXqdRTUFB+a0jfVKNmZlHmvPmfYeeJfcfyOTzO8dQ41fHNHUFb15ryxa/TblDQimwkA==}
     engines: {node: '>=14'}
     peerDependencies:
@@ -479,7 +475,6 @@ packages:
       jsonpointer: 5.0.1
       lodash: 4.17.21
       lodash-es: 4.17.21
-      react: 18.2.0
       react-is: 18.2.0
     dev: false
 
@@ -1180,10 +1175,6 @@ packages:
     resolution: {integrity: sha512-m4avr8yL8kmFN8psrbFFFmB/If14iN5o9nw/NgnnM+kybDJpRsAynV2BsfpTYrTRysYUdADVD7CkUUizgkpLfg==}
     dev: false
 
-  /js-tokens@4.0.0:
-    resolution: {integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==}
-    dev: false
-
   /json-bignum@0.0.3:
     resolution: {integrity: sha512-2WHyXj3OfHSgNyuzDbSxI1w2jgw5gkWSWhS7Qg4bWXx1nLk3jnbwfUeS0PSba3IzpTUWdHxBieELUzXRjQB2zg==}
     engines: {node: '>=0.8'}
@@ -1239,13 +1230,6 @@ packages:
     resolution: {integrity: sha512-v2kDEe57lecTulaDIuNTPy3Ry4gLGJ6Z1O3vE1krgXZNrsQ+LFTGHVxVjcXPs17LhbZVGedAJv8XZ1tvj5FvSg==}
     dev: false
 
-  /loose-envify@1.4.0:
-    resolution: {integrity: sha512-lyuxPGr/Wfhrlem2CL/UcnUc1zcqKAImBDzukY7Y5F/yQiNdko6+fRLevlw1HgMySw7f611UIY408EtxRSoK3Q==}
-    hasBin: true
-    dependencies:
-      js-tokens: 4.0.0
-    dev: false
-
   /mathjs@11.0.1:
     resolution: {integrity: sha512-Kgm+GcTxwD68zupr7BPK0yrlWpTh2q8sMH6VcBcQe5+JCBqcwOrBxBF11WPah7hVv0NCLDnJnFTiXtik1Phasg==}
     engines: {node: '>= 14'}
@@ -1271,10 +1255,6 @@ packages:
     engines: {node: ^14.0.0 || ^16.0.0 || >=18.0.0}
     dev: false
 
-  /numeric@1.2.6:
-    resolution: {integrity: sha512-avBiDAP8siMa7AfJgYyuxw1oyII4z2sswS23+O+ZfV28KrtNzy0wxUFwi4f3RyM4eeeXNs1CThxR7pb5QQcMiw==}
-    dev: false
-
   /pad-left@2.1.0:
     resolution: {integrity: sha512-HJxs9K9AztdIQIAIa/OIazRAUW/L6B9hbQDxO4X07roW3eo9XqZc2ur9bn1StH9CnbbI9EgvejHQX7CBpCF1QA==}
     engines: {node: '>=0.10.0'}
@@ -1297,13 +1277,6 @@ packages:
 
   /react-is@18.2.0:
     resolution: {integrity: sha512-xWGDIW6x921xtzPkhiULtthJHoJvBbF3q26fzloPCK0hsvxtPVelvftw3zjbHWSkR2km9Z+4uxbDDK/6Zw9B8w==}
-    dev: false
-
-  /react@18.2.0:
-    resolution: {integrity: sha512-/3IjMdb2L9QbBdWiW5e3P2/npwMBaU9mHCSCUzNln0ZCYbcfTsGbTJrU/kGemdH2IWmB2ioZ+zkxtmq6g09fGQ==}
-    engines: {node: '>=0.10.0'}
-    dependencies:
-      loose-envify: 1.4.0
     dev: false
 
   /reduce-flatten@2.0.0:
