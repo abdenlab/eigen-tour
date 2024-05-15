@@ -30,7 +30,14 @@ class Widget(anywidget.AnyWidget):
     label_field = traitlets.Unicode().tag(sync=True)
     label_colors = traitlets.Dict().tag(sync=True)
 
-    def __init__(self, df, axis_fields, label_field, label_colors, **kwargs):
+    def __init__(
+        self,
+        df: pd.DataFrame,
+        axis_fields: list[str],
+        label_field: str,
+        label_colors: dict[str, str],
+        **kwargs
+    ):
 
         if not all(field in df.columns for field in axis_fields):
             raise ValueError("`axis_fields` must be a subset of df columns")
