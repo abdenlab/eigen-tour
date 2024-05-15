@@ -16,10 +16,13 @@ export class Overlay {
 	annotate?: (renderer: Renderer) => void;
 	legend?: Legend;
 	anchors?: d3.Selection<SVGGElement, string, SVGSVGElement, unknown>;
+	#dataset: string;
 
-	constructor(public renderer: Renderer) {
-		this.figure = d3.select(renderer.gl.canvas.parentNode as HTMLElement);
+	constructor(public renderer: Renderer, dataset: string) {
+		let canvas = renderer.gl.canvas as HTMLCanvasElement;
+		this.figure = d3.select(canvas.parentNode as HTMLElement);
 		let self = this;
+		this.#dataset = dataset;
 
 		this.epochSlider = this.figure
 			.insert("input", ":first-child")
@@ -162,15 +165,17 @@ export class Overlay {
 	}
 
 	get width() {
-		return this.renderer.gl.canvas.clientWidth;
+		let canvas = this.renderer.gl.canvas as HTMLCanvasElement;
+		return canvas.clientWidth;
 	}
 
 	get height() {
-		return this.renderer.gl.canvas.clientHeight;
+		let canvas = this.renderer.gl.canvas as HTMLCanvasElement;
+		return canvas.clientHeight;
 	}
 
 	get dataset() {
-		return utils.getDataset() as keyof typeof utils.legendTitle;
+		return this.#dataset;
 	}
 
 	resize() {
@@ -201,8 +206,8 @@ export class Overlay {
 		}
 	}
 
-	init() {
-		this.initLegend();
+	init(legendData: [string, d3.RGBColor][]) {
+		this.initLegend(legendData);
 		this.resize();
 		this.drawAxes();
 		if (this.annotate !== undefined) {
@@ -295,17 +300,13 @@ export class Overlay {
 			});
 	}
 
-	initLegend() {
-		let data = utils.zip(
-			utils.getLabelNames(false, this.dataset),
-			utils.baseColors,
-		);
-		this.legend = new Legend(data, {
+	initLegend(legendData: [string, d3.RGBColor][]) {
+		this.legend = new Legend(legendData, {
 			root: this.svg,
-			title: utils.legendTitle[this.dataset],
+			title: utils.legendTitle[this.dataset as keyof typeof utils.legendTitle],
 			margin: {
-				left: utils.legendLeft[this.dataset],
-				right: utils.legendRight[this.dataset],
+				left: utils.legendLeft[this.dataset as keyof typeof utils.legendLeft],
+				right: utils.legendRight[this.dataset as keyof typeof utils.legendRight],
 			},
 		});
 		this.legend.on("select", (classes) => {
