@@ -3,6 +3,8 @@ import * as utils from "./utils";
 import fs from "./shaders/teaser_fragment.glsl";
 import vs from "./shaders/teaser_vertex.glsl";
 
+import "./widget.css";
+
 async function main() {
 	let canvas = document.querySelector("canvas")!;
 	let { gl, program } = utils.initGL(canvas, fs, vs);
@@ -15,7 +17,7 @@ async function main() {
 
 	{
 		let clearBanner = utils.createLoadingBanner(renderer.overlay.figure);
-		let res = await fetch(new URL("../data/eigs.arrow", import.meta.url))
+		let res = await fetch(new URL("./eigs.arrow", import.meta.url))
 		await renderer.initData(
             await res.arrayBuffer(),
             ["E1", "E2", "E3", "E4", "E5", "E6"],
