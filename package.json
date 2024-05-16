@@ -4,6 +4,7 @@
 	"scripts": {
 		"dev": "npm run build -- --sourcemap=inline --watch",
 		"build": "esbuild js/widget.ts --minify --format=esm --bundle --outdir=src/eigen_tour/static",
+		"build-site": "esbuild js/index.ts --format=esm --bundle --outdir=dist/",
 		"fmt": "deno fmt --ignore=dist,node_modules --options-use-tabs"
 	},
 	"author": "Trevor Manz",

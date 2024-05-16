@@ -31,7 +31,10 @@ jobs:
           run_install: true
 
       - name: Build 🔧
-        run: pnpm build --base '/eigen-tour/'
+        run: |
+          pnpm build-site
+          cp example/index.html dist
+          cp example/data/* dist
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v1

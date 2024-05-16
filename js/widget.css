@@ -237,6 +237,7 @@ svg text.method{
 }
 
 d-figure{
+  font-family: sans-serif;
   position: relative;
   grid-column: text;
   /*margin: 1rem 0;*/
