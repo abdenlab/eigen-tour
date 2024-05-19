@@ -39,7 +39,7 @@ export class Renderer {
 	isFullScreen = false;
 	shouldRender = true;
 	scaleFactor = 1.0;
-	s = 1.0;
+	n_frames = 1;
 
 	id: string;
 	epochs: number[];
@@ -109,10 +109,11 @@ export class Renderer {
 	}
 
 	async initData(
-		buffer: ArrayBuffer, 
-		axisFields: string[], 
-		labelField: string, 
+		buffer: ArrayBuffer,
+		axisFields: string[],
+		labelField: string,
 		labelColors?: Object,
+		pointAlpha: number = 255,
 	) {
 		// Load the table
 		let table = arrow.tableFromIPC(buffer);
@@ -129,7 +130,7 @@ export class Renderer {
 			categories = Object.keys(labelColors);
 			hexColors = Object.values(labelColors);
 		} else {
-			hexColors = d3.schemeCategory10;
+			hexColors = d3.schemeCategory10.slice();
 		}
 		let rgbColors = hexColors.map((c) => d3.rgb(c)!);
 		let legendData = utils.zip(categories, rgbColors);
@@ -157,13 +158,15 @@ export class Renderer {
 			ndim,
 			npoint: n_points,
 			nepoch,
-			alphas: Array.from({ length: n_points + 5 * n_points }, () => 255),
+			alphas: Array.from({ length: n_points + ndim * n_points }, () => pointAlpha),
 			hexColors
 		};
 
 		// Initialize the display and overlay
 		this.shouldRecalculateColorRect = true;
 		this.initGL(this.dataObj);
+
+		// Start the rendering loop
 		if (this.isPlaying === undefined) {
 			// renderer.isPlaying===undefined indicates the renderer on init
 			// otherwise it is reloading other dataset
@@ -262,9 +265,15 @@ export class Renderer {
 		}
 	}
 
-	play(_t = 0) {
+	/**
+	 * Sets up a recursive rendering loop via requestAnimationFrame
+	 *
+	 * @param _t - this doesn't seem to be used
+	 */
+	play(_t = 0): void {
+		// If we are playing the grand tour, make a time step.
+		// If we have played enough frames, update the "epoch" too.
 		let dt = 0;
-
 		if (
 			this.shouldRender &&
 			(this.shouldPlayGrandTour || this.shouldAutoNextEpoch)
@@ -274,8 +283,8 @@ export class Renderer {
 			}
 
 			if (this.shouldAutoNextEpoch) {
-				this.s += 1;
-				if (this.s % this.framesPerEpoch == 0) {
+				this.n_frames += 1;
+				if (this.n_frames % this.framesPerEpoch == 0) {
 					this.nextEpoch();
 				}
 			} else {
@@ -283,6 +292,7 @@ export class Renderer {
 			}
 		}
 
+		// If we are in a scale transition, update the progress
 		if (
 			this.isScaleInTransition &&
 			this.scaleTransitionProgress <= 1 &&
@@ -291,11 +301,13 @@ export class Renderer {
 			this.scaleTransitionProgress += this.scaleTransitionDelta;
 		}
 
+		// Render the current frame
 		if (this.shouldRender) {
 			this.render(dt);
 			this.overlay.redrawAxis();
 		}
 
+		// Request the next frame
 		this.animId = requestAnimationFrame(this.play.bind(this));
 	}
 
@@ -360,19 +372,21 @@ export class Renderer {
 	}
 
 	render(dt: number) {
-		if (!this.dataObj || !this.gt) return;
+		if (!this.dataObj || !this.gt || !this.gl) return;
 
 		let canvas = this.gl.canvas as HTMLCanvasElement;
 		let dataObj = this.dataObj;
 		let data = this.dataObj.dataTensor[this.epochIndex];
 		let labels = this.dataObj.labels;
-
-		data = data.concat(utils.createAxisPoints(dataObj.ndim));
 		let points = this.gt.project(data, dt);
+
+		let axisData = utils.createAxisPoints(dataObj.ndim);
+		let axisPoints = this.gt.project(axisData, dt);
+		points = points.concat(axisPoints);
 
 		if (
 			this.epochIndex > 0 &&
-			(this.s % this.framesPerEpoch) < this.framesPerTransition
+			(this.n_frames % this.framesPerEpoch) < this.framesPerTransition
 		) {
 			let data0 = this.dataObj.dataTensor[this.epochIndex - 1];
 			data0 = data0.concat(utils.createAxisPoints(dataObj.ndim));
@@ -380,7 +394,7 @@ export class Renderer {
 			points = utils.linearInterpolate(
 				points0,
 				points,
-				(this.s % this.framesPerEpoch) / this.framesPerTransition,
+				(this.n_frames % this.framesPerEpoch) / this.framesPerTransition,
 			);
 		}
 
@@ -432,7 +446,7 @@ export class Renderer {
 		dataObj.points = points;
 
 		let rgbColors = dataObj.hexColors.map((c) => d3.rgb(c)!);
-		let modifiedColors = utils.modifyColors(rgbColors);
+		// let modifiedColors = utils.modifyColors(rgbColors);
 		let colors: ColorRGBA[] = labels
 			.map((i) => rgbColors[i])
 			.concat(utils.createAxisColors(dataObj.ndim))
@@ -440,43 +454,46 @@ export class Renderer {
 
 		dataObj.colors = colors;
 
+		// Do the rendering
 		this.gl.viewport(0, 0, this.gl.canvas.width, this.gl.canvas.height);
 
+		// Clear the canvas
 		this.gl.clearColor(...this.#clearColor);
 		this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
 
+		// Fill the point position buffer and bind it
 		this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.positionBuffer!);
 		this.gl.bufferData(
 			this.gl.ARRAY_BUFFER,
 			utils.flatten(points),
 			this.gl.STATIC_DRAW,
 		);
-		// deno-fmt-ignore
 		this.gl.vertexAttribPointer(this.positionLoc!, 3, this.gl.FLOAT, false, 0, 0);
 		this.gl.enableVertexAttribArray(this.positionLoc!);
 
+		// Fill the point color buffer and bind it
 		this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.colorBuffer!);
 		this.gl.bufferData(
 			this.gl.ARRAY_BUFFER,
 			new Uint8Array(colors.flat()),
 			this.gl.STATIC_DRAW,
 		);
-		// deno-fmt-ignore
 		this.gl.vertexAttribPointer(this.colorLoc!, 4, this.gl.UNSIGNED_BYTE, true, 0, 0);
 		this.gl.enableVertexAttribArray(this.colorLoc!);
 
-		this.gl.bufferData(
-			this.gl.ARRAY_BUFFER,
-			new Uint8Array(
-				modifiedColors.map((c: { r: number; g: number; b: number; }) => [c.r, c.g, c.b, utils.pointAlpha]).flat(),
-			),
-			this.gl.STATIC_DRAW,
-		);
+		// Scale the point size and draw the points with the modified colors
+		// this.gl.bufferData(
+		// 	this.gl.ARRAY_BUFFER,
+		// 	new Uint8Array(
+		// 		modifiedColors.map((c: { r: number; g: number; b: number; }) => [c.r, c.g, c.b, utils.pointAlpha]).flat(),
+		// 	),
+		// 	this.gl.STATIC_DRAW,
+		// );
+		// this.gl.uniform1i(this.isDrawingAxisLoc!, 0);
+		this.pointSize = this.pointSize0 * Math.sqrt(this.scaleFactor); // see setter
+		// this.gl.drawArrays(this.gl.POINTS, 0, dataObj.npoint);
 
-		this.gl.uniform1i(this.isDrawingAxisLoc!, 0);
-		this.pointSize = this.pointSize0 * Math.sqrt(this.scaleFactor);
-
-		this.gl.drawArrays(this.gl.POINTS, 0, dataObj.npoint);
+		// Draw the points with the original colors
 		this.gl.bufferData(
 			this.gl.ARRAY_BUFFER,
 			new Uint8Array(
@@ -484,10 +501,11 @@ export class Renderer {
 			),
 			this.gl.STATIC_DRAW,
 		);
-
 		this.gl.uniform1i(this.isDrawingAxisLoc!, 0);
 		this.gl.drawArrays(this.gl.POINTS, 0, dataObj.npoint);
 
+
+		// Draw the axes (from the remaining points)
 		this.gl.uniform1i(this.isDrawingAxisLoc!, 1);
 		this.gl.drawArrays(this.gl.LINES, dataObj.npoint, dataObj.ndim * 2);
 	}

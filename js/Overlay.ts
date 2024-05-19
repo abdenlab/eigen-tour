@@ -195,9 +195,11 @@ export class Overlay {
 		let sliderWidth = parseFloat(this.epochSlider.style("width"));
 		let sliderMiddle = sliderLeft + sliderWidth / 2;
 
-		this.epochIndicator
-			.attr("x", sliderMiddle)
-			.attr("y", this.height - 35);
+		if (sliderMiddle) {
+			this.epochIndicator
+				.attr("x", sliderMiddle)
+				.attr("y", this.height - 35);
+		}
 
 		if (this.renderer.epochs.length <= 1) {
 			this.epochIndicator
@@ -243,7 +245,7 @@ export class Overlay {
 			.append("text")
 			.attr("text-anchor", "middle")
 			.attr("fill", "black")
-			.attr("x", "black")
+			// .attr("x", "black")
 			.text((label) => label);
 
 		let self = this;
