@@ -29,6 +29,7 @@ class Widget(anywidget.AnyWidget):
     axis_fields = traitlets.List().tag(sync=True)
     label_field = traitlets.Unicode().tag(sync=True)
     label_colors = traitlets.Dict().tag(sync=True)
+    alpha = traitlets.Int().tag(sync=True)
 
     def __init__(
         self,
@@ -36,6 +37,7 @@ class Widget(anywidget.AnyWidget):
         axis_fields: list[str],
         label_field: str,
         label_colors: dict[str, str],
+        alpha: int = 255,
         **kwargs
     ):
 
@@ -60,10 +62,14 @@ class Widget(anywidget.AnyWidget):
         else:
             raise ValueError("`label_colors` must be a list or a dict")
 
+        if alpha < 0 or alpha > 255:
+            raise ValueError("`alpha` must be an integer between 0 and 255")
+
         super().__init__(
             data=arrow_from_pandas(df[[label_field, *axis_fields]]),
             axis_fields=axis_fields,
             label_field=label_field,
             label_colors=label_colors,
+            alpha=alpha,
             **kwargs,
         )

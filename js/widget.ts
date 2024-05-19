@@ -12,6 +12,7 @@ interface Model {
 	axis_fields: string[];
 	label_field: string;
 	label_colors: string[];
+	alpha: number;
 }
 
 const TEMPLATE = `<d-figure class="teaser">
@@ -27,7 +28,7 @@ export default {
 		// Compile the fragment and vertex shaders
 		console.log("initGL");
 		let { gl, program } = utils.initGL(canvas, fs, vs);
-		
+
 		// Create the renderer
 		console.log("Create renderer");
 		let renderer = new Renderer(gl, program, "mnist");
@@ -41,10 +42,11 @@ export default {
 			let clearBanner = utils.createLoadingBanner(renderer.overlay.figure);
 			console.log("Loading data...");
 			await renderer.initData(
-				model.get("data").buffer, 
+				model.get("data").buffer,
 				model.get("axis_fields"),
-				model.get("label_field"), 
+				model.get("label_field"),
 				model.get("label_colors"),
+				model.get("alpha")
 			);
 			console.log("Data loaded");
 			clearBanner();
@@ -58,6 +60,22 @@ export default {
 		// Return a cleanup function
 		return () => {
 			window.removeEventListener("resize", onResize);
+
+			// Cleanup WebGL resources
+			gl.deleteBuffer(renderer.positionBuffer!);
+			gl.deleteBuffer(renderer.colorBuffer!);
+			const attachedShaders = gl.getAttachedShaders(program);
+			attachedShaders!.forEach((shader) => {
+				gl.detachShader(program, shader);
+				gl.deleteShader(shader);
+			});
+			gl.deleteProgram(program);
+			const loseContext = gl.getExtension('WEBGL_lose_context');
+			if (loseContext) {
+			  loseContext.loseContext();
+			}
+			renderer.gl = null;
+			gl = null;
 		}
 	}
 }
