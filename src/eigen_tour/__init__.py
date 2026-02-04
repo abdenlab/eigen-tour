@@ -15,6 +15,24 @@ except importlib.metadata.PackageNotFoundError:
 
 def arrow_from_pandas(df):
     table = pa.Table.from_pandas(df)
+    # Downcast large string types to regular string for compatibility with
+    # the JS apache-arrow library (v9), which doesn't support LargeUtf8.
+    schema = table.schema
+    for i, field in enumerate(schema):
+        if pa.types.is_large_string(field.type):
+            table = table.set_column(
+                i, field.name, table.column(i).cast(pa.utf8())
+            )
+        elif pa.types.is_dictionary(field.type) and pa.types.is_large_string(
+            field.type.value_type
+        ):
+            table = table.set_column(
+                i,
+                field.name,
+                table.column(i).cast(
+                    pa.dictionary(field.type.index_type, pa.utf8())
+                ),
+            )
     with BytesIO() as stream:
         writer = pa.ipc.new_file(stream, table.schema)
         writer.write_table(table)

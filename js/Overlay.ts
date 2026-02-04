@@ -4,6 +4,16 @@ import { Legend } from "./Legend";
 
 import type { Renderer } from "./Renderer";
 
+const ICON_PLAY = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+const ICON_PAUSE = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>';
+const ICON_EXPAND = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>';
+const ICON_GLOBE = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>';
+
+function setIcon(el: Element, svg: string) {
+	el.querySelector("svg")?.remove();
+	el.insertAdjacentHTML("afterbegin", svg);
+}
+
 export class Overlay {
 	figure: d3.Selection<HTMLElement, unknown, null, undefined>;
 	epochSlider: d3.Selection<HTMLInputElement, unknown, null, undefined>;
@@ -35,18 +45,12 @@ export class Overlay {
 				let value = d3.select(this).property("value");
 				renderer.shouldAutoNextEpoch = false;
 				renderer.setEpochIndex(parseInt(value));
-				// renderer.render(0);
-				self.playButton.attr("class", "tooltip play-button fa fa-play");
-				self.playButton.select("span").text("Play training");
+				self.setPlayButtonState(false);
 			});
 
 		this.playButton = this.figure
 			.insert("i", ":first-child")
-			.attr(
-				"class",
-				"play-button tooltip fa " +
-				(renderer.shouldAutoNextEpoch ? "fa-pause" : "fa-play"),
-			)
+			.attr("class", "play-button tooltip")
 			.on("mouseover", function() {
 				d3.select(this).style("opacity", 1);
 			})
@@ -55,15 +59,10 @@ export class Overlay {
 			})
 			.on("click", function() {
 				renderer.shouldAutoNextEpoch = !renderer.shouldAutoNextEpoch;
-				if (renderer.shouldAutoNextEpoch) {
-					d3.select(this).attr("class", "tooltip play-button fa fa-pause");
-					d3.select(this).select("span").text("Pause training");
-				} else {
-					d3.select(this).attr("class", "tooltip play-button fa fa-play");
-					d3.select(this).select("span").text("Play training");
-				}
+				self.setPlayButtonState(renderer.shouldAutoNextEpoch);
 			});
 
+		setIcon(this.playButton.node()!, renderer.shouldAutoNextEpoch ? ICON_PAUSE : ICON_PLAY);
 		this.playButton.append("span")
 			.attr("class", "tooltipText")
 			.text("Pause training");
@@ -74,7 +73,7 @@ export class Overlay {
 
 		this.fullScreenButton = this.figure
 			.insert("i", ":first-child")
-			.attr("class", "tooltip teaser-fullscreenButton fas fa-expand-arrows-alt")
+			.attr("class", "tooltip teaser-fullscreenButton")
 			.on("mouseover", function() {
 				d3.select(this).style("opacity", 0.7);
 			})
@@ -86,15 +85,14 @@ export class Overlay {
 				d3.select(this).style("opacity", renderer.isFullScreen ? 0.7 : 0.3);
 			});
 
+		setIcon(this.fullScreenButton.node()!, ICON_EXPAND);
 		this.fullScreenButton.append("span")
 			.attr("class", "tooltipTextBottom")
 			.text("Toggle fullscreen");
 
 		this.grandtourButton = this.figure
 			.insert("i", ":first-child")
-			.attr("class", "teaser-grandtourButton tooltip fas fa-globe-americas")
-			.attr("width", 32)
-			.attr("height", 32)
+			.attr("class", "teaser-grandtourButton tooltip")
 			.style("opacity", renderer.shouldPlayGrandTour ? 0.7 : 0.3)
 			.on("mouseover", function() {
 				d3.select(this).style("opacity", 0.7);
@@ -106,6 +104,7 @@ export class Overlay {
 				);
 			});
 
+		setIcon(this.grandtourButton.node()!, ICON_GLOBE);
 		this.grandtourButton.append("span")
 			.attr("class", "tooltipText")
 			.text("Pause Grand Tour");
@@ -206,6 +205,11 @@ export class Overlay {
 				.attr("x", this.width / 2 - 10)
 				.attr("y", this.height - 20);
 		}
+	}
+
+	setPlayButtonState(isPlaying: boolean) {
+		setIcon(this.playButton.node()!, isPlaying ? ICON_PAUSE : ICON_PLAY);
+		this.playButton.select(".tooltipText").text(isPlaying ? "Pause training" : "Play training");
 	}
 
 	init(legendData: [string, d3.RGBColor][]) {

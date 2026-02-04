@@ -345,7 +345,7 @@ export class Renderer {
 	playFromEpoch(epoch: number) {
 		this.shouldAutoNextEpoch = true;
 		this.setEpochIndex(epoch);
-		this.overlay.playButton.attr("class", "tooltip play-button fa fa-pause");
+		this.overlay.setPlayButtonState(true);
 	}
 
 	nextEpoch() {
